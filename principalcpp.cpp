@@ -4,6 +4,9 @@
 
 using namespace std;
 
+void menu();
+void opcionesMenu(int);
+
 void lecturaArchivoCSV();
 
 ///////////////////////////////////////////////////////// CLASE NODO MATRIZ ///////////////////////////////////////////////////////////////////
@@ -836,6 +839,8 @@ void Matriz::imprimirSiguienteLuegoAbajo()
 }
 
 
+///////////////////////////////////////////////////////// CLASE NODO LISTA ARCHIVOS /////////////////////////////////////////////////////////////////
+
 class NodolistaArchivos
 {
 public:
@@ -855,12 +860,15 @@ NodolistaArchivos::NodolistaArchivos(int _indice, string _nomArchivo)
 	this->nomArchivo = _nomArchivo;
 }
 
+///////////////////////////////////////////////////////// CLASE LISTA ARCHIVOS ///////////////////////////////////////////////////////////////////
+
 class listaArchivos
 {
 public:
 	NodolistaArchivos *raizArch;
 	listaArchivos();
 	void insertarElemento(int, string);
+	void nuevaMatriz(int, string);
 	void imprimir();
 };
 
@@ -908,69 +916,178 @@ void listaArchivos::insertarElemento(int _indice, string _nomArchivo)
 	}
 }
 
-void listaArchivos::imprimir()
+void listaArchivos::nuevaMatriz(int _capa, string _archivo)
 {
+	Matriz a; //objeto para ingresar a matriz
 	NodolistaArchivos *aux = this->raizArch;
 
 	if (aux!=NULL)
 	{
-		while (aux!=NULL)
+		while (aux!=NULL) //mientras sea distinto de NULL ejecuta
 		{
-			cout << aux->indice << endl;
+			if (aux->indice==_capa) //cuando ya lo encuentra, buscara lo que hay en el archivo y creara una matriz con ese archivo
+			{
+				try{
+
+					//empezara a leer el archivo.csv
+					ifstream lectura;
+					lectura.open(aux->nomArchivo, ios::in);
+
+					int linealec = 0;
+
+					for (string linea; getline(lectura, linea);)
+					{
+						stringstream registro(linea);
+						string dato;
+
+						for (int columna = 0; getline(registro, dato, ';'); ++columna)
+						{
+							a.insertarElemento(columna, linealec, dato); //me ingresa en la matriz con las coordenadas especificas
+						}
+
+						linealec++;
+					}
+
+					aux->apuntaRaizDeMatriz = a.raiz; //se enlaza mi lista archivos con la matriz creada
+
+				}
+				catch (exception e){
+					printf("ERROR AL LEER ARCHIVO EN CREACION DE MATRIZ");
+				}				
+			}
+
+			aux = aux->siguiente;
+		}
+	}
+}
+
+void listaArchivos::imprimir()
+{
+	NodolistaArchivos *aux = this->raizArch;
+	string filas = "";
+
+	if (aux!=NULL)
+	{
+		while (aux!=NULL) //me recorre la listaArchivos en este sentido -> -> ->
+		{
+			cout << aux->indice << " <LISTA ARCHIVO>  " << aux->nomArchivo << endl;
+			
+			nodoMatriz *aux2 = aux->apuntaRaizDeMatriz; //se posiciona en la raiz de la matriz
+
+			while (aux2!=NULL) //me recorre la matriz para abajo
+			{
+				filas += "(" + to_string(aux2->x) + "," + to_string(aux2->y) + "," + aux2->dato + ")";
+				nodoMatriz *aux3 = aux2->siguiente; //aux2 va hacia abajo, entonces aux3=aux2->siguiente para recorrer toda una fila
+
+				while (aux3!=NULL) //me recorre cada fila de la matriz en este sentido -> -> ->
+				{
+					filas += "(" + to_string(aux3->x) + "," + to_string(aux3->y) + "," + aux3->dato + ")";
+					aux3 = aux3->siguiente;
+				}
+
+				cout << filas << endl;
+				filas = "";				
+				aux2 = aux2->abajo;
+			}
+
 			aux = aux->siguiente;
 		}
 
 	}
 }
 
+void CrearCuboDisperso()
+{	
+	listaArchivos larch; //objeto para insertar en lista archivos y crear matriz	
+	
+	int bande = 1; // bandera para que me ayude a insetar
+	int capa = 0;
+	string archivo="";	
 
+	//me lee el archivo principal
+	try{
+		ifstream lectura;
+		lectura.open("archivo.csv", ios::in);
+		int linealec = 0; //me dira en que linea me encuentro
 
+		for (string linea; getline(lectura, linea);)
+		{
+			stringstream registro(linea);
+			string dato;
 
+			for (int columna = 0; getline(registro, dato, ';'); ++columna)
+			{
+				if (linealec > 0)
+				{
+					if (bande % 2 == 0) //cada dos datos insertara, para mandar a insertar fila con sus dos columnas
+					{
+						archivo = dato;
+						larch.insertarElemento(capa, archivo); //se inserta a la lista el archivo leido
+						larch.nuevaMatriz(capa, archivo); //se crea una matriz para el archivo leido anteriormente
+					}
+					else{
+						capa = atoi(dato.c_str());
+					}
+					bande++;
+				}
+			}
 
+			linealec++;
+		}
+		larch.imprimir();
+		
+	}
+	catch (exception e){
+		printf("NO SE ENCONTRO EL ARCHIVO INICIAL");
+	}	
+}
 
+void menu()
+{
+	int opcion;
+	do{
+		printf(" \n -------MENU------ \n");
+		printf("1. Insertar Imagen \n");
+		printf("2. Seleccionar Imagen \n");
+		printf("3. Aplicar Filtros \n");
+		printf("4. Edicion Manual \n");
+		printf("5. Exportar Imagen \n");
+		printf("6. Reportes \n");
+		printf("7. Salir \n");
 
+		printf("\n ELIJA UNA OPCION: \n");
+		cin >> opcion;
+		opcionesMenu(opcion);
+	} while (true);
+}
 
-
-
-
+void opcionesMenu(int _opcion)
+{
+	switch (_opcion)
+	{
+	case 1:
+		CrearCuboDisperso();
+		break;
+	case 2:
+		break;
+	case 3:
+		break;
+	case 4:
+		break;
+	case 5:
+		break;
+	case 6:
+		break;
+	case 7:
+		exit(0);
+	default:
+		printf("\n<-!!- OPCION INVALIDA -!!-> \n");
+	}
+}
 
 int main()
 {
-	//Matriz a;
-	////caso 1
-	//a.insertarElemento(1, 1, "Christpher");
-	//a.insertarElemento(2, 2, "Alexander");
-	//a.insertarElemento(3, 3, "Acajabon");
-	//a.insertarElemento(4, 4, "Gudiel");
-	////caso2
-	//a.insertarElemento(5, 1, "aja");
-	//a.insertarElemento(6, 2, "aja");
-	//a.insertarElemento(7, 3, "aja");
-	//a.insertarElemento(8, 4, "aja");
-	////caso3
-	//a.insertarElemento(1, 5, "aja");
-	//a.insertarElemento(2, 6, "aja");
-	//a.insertarElemento(3, 7, "aja");
-	//a.insertarElemento(4, 8, "aja");
-	////caso4
-	//a.insertarElemento(2, 1, "aja");
-	//a.insertarElemento(3, 1, "aja");
-	//a.insertarElemento(4, 1, "aja");
-	//a.insertarElemento(6, 1, "aja");
-	//a.insertarElemento(7, 1, "aja");
-	//a.insertarElemento(8, 1, "aja");
-	//a.insertarElemento(4, 3, "aja");	
-
-	//a.imprimirAbajoLuegoSiguiente();
-	//printf("\n");
-
-	/*listaArchivos b;
-	b.insertarElemento(0, "sksksk");
-	b.insertarElemento(1, "sksksk");
-	b.insertarElemento(3, "sksksk");
-	b.imprimir();*/
-
-	lecturaArchivoCSV();
+	menu();
 
 	system("pause");
 	return 0;
@@ -982,6 +1099,7 @@ void lecturaArchivoCSV()
 	lectura.open("archivo.csv", ios::in);
 
 	int linealec = 0;
+
 
 	for (string linea; getline(lectura, linea);)
 	{
