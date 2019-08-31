@@ -1,16 +1,37 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <cstdlib>
 
 using namespace std;
 
 void menu();
 void opcionesMenu(int);
 void lecturaArchivoCSV();
-void guardarConfig(string);
+void CrearCuboDisperso();
+void copiaCuboDisperso();
 void modificarCapaEspecificaDeCuboNegativo(string);
 void modificarTodasLasCapasDeCuboNegativo();
+bool verificarSiExisteCapa(string);
 string obtenerRGBnegativo(string);
+void filtroEspejoEjeX();
+void filtroEspejoEjeY();
+void ReporteGraphvizTodasLasCapas();
+void ReporteGraphvizLinealizacionPorFilaTodasCapas();
+void ReporteGraphvizLinealizacionPorColumnaTodasCapas();
+void guardarConfig(string);
+void graphvizEscrituraParaCapa(string, string);
+void graphvizEscrituraParaLinealizacion(string, string);
+void guardarCuboEnListaDoble(string);
+
+void subMenuFiltros();
+void subsubMenuFiltrosOp1();
+void subsubMenuFiltrosOp2();
+
+string rgbR(int num);
+string rgbG(int num);
+string rgbB(int num);
+string separarRGB_Y_Extraer_Hexa(string);
 
 int config[4]; //guardar la configuracion de la imagen (width ancho)(height alto)(pix width)(pix height)
 
@@ -65,7 +86,7 @@ public:
 
 Matriz::Matriz()
 {
-	this->raiz = new nodoMatriz(-1,-1,"raiz"); //inicializamos creando raiz
+	this->raiz = new nodoMatriz(-1,-1,"RAIZ"); //inicializamos creando raiz
 
 }
 
@@ -797,8 +818,6 @@ NodolistaArchivos::NodolistaArchivos(int _indice, string _nomArchivo)
 	this->nomArchivo = _nomArchivo;
 }
 
-///////////////////////////////////////////////////////// CLASE LISTA ARCHIVOS ///////////////////////////////////////////////////////////////////
-
 class listaArchivos
 {
 public:
@@ -883,7 +902,10 @@ void listaArchivos::nuevaMatriz(int _capa, string _archivo)
 						
 						for (int columna = 0; getline(registro, dato, ';'); ++columna)
 						{
-							a.insertarElemento(columna, linealec, dato); //me ingresa en la matriz con las coordenadas especificas
+							if ((dato.compare("x") != 0) && (dato.compare("X") != 0)) //no agrega x's
+							{
+								a.insertarElemento(columna, linealec, dato); //me ingresa en la matriz con las coordenadas especificas
+							}
 						}						
 						linealec++;
 					}
@@ -1054,7 +1076,7 @@ void copiaCubo::imprimir()
 
 	if (aux != NULL)
 	{
-		while (aux != NULL) //me recorre la listaArchivos en este sentido -> -> ->
+		while (aux != NULL) //me recorre la lista copia cubo en este sentido -> -> ->
 		{
 			cout << aux->indice << " <->  " << aux->nomArchivo << endl;
 
@@ -1120,10 +1142,283 @@ void copiaCubo::insertarElemento(int _indice, string _archivo)
 	}
 }
 
+///////////////////////////////////////////////////////////////////// PILA /////////////////////////////////////////////////////////////////////////
+class NodoPila{
+
+public:
+	NodoPila *siguiente;
+	string valor;
+	NodoPila(string); //constructor
+};
+
+NodoPila::NodoPila(string _valor)
+{
+	this->siguiente = NULL;
+	this->valor = _valor;
+}
+
+class Pila{
+public:
+	NodoPila *raizPila;
+	Pila(); //constructor
+	void insertar(string);
+	string eliminar();
+	void imprimir();
+};
+
+Pila::Pila(){
+	this->raizPila = new NodoPila("raizPila");
+}
+
+void Pila::insertar(string _valor)
+{
+	NodoPila *nuevo = new NodoPila(_valor);
+	NodoPila *temp = this->raizPila;
+	
+	//agrego al principio
+	if (temp->siguiente == NULL) //cuando aun no hay nodos
+	{
+		temp->siguiente = nuevo;
+	}
+	else{
+		nuevo->siguiente = temp->siguiente;
+		temp->siguiente = nuevo;
+	}
+}
+
+string Pila::eliminar()
+{
+	NodoPila *temp = this->raizPila;	
+	string dato = "";
+
+	//elimino el primer valor
+	if (temp->siguiente!=NULL)
+	{
+		NodoPila *temp2 = temp->siguiente;
+
+		dato = temp2->valor; //capturo el primer valor
+
+		temp->siguiente = temp2->siguiente;
+		temp2->siguiente = NULL;
+	}	
+
+	return dato;
+}
+
+void Pila::imprimir()
+{
+	NodoPila *temp = this->raizPila;
+	while (temp!=NULL)
+	{
+		cout << temp->valor << endl;
+		
+		temp = temp->siguiente;
+	}
+}
+
+///////////////////////////////////////////////////////////////////// LISTA CIRCULAR /////////////////////////////////////////////////////////////////////////
+
+class nodoFiltro{
+public:
+	nodoFiltro *anterior;
+	nodoFiltro *siguiente;
+	NodoCopiaCubo *apuntaCopiaCubo;
+	string nomFiltro;
+	nodoFiltro(string); //constructor
+};
+
+nodoFiltro::nodoFiltro(string _filtro){
+	this->anterior = NULL;
+	this->siguiente = NULL;
+	this->apuntaCopiaCubo = NULL;
+	this->nomFiltro = _filtro;
+}
+
+class listaDobCircuFiltros{
+public:
+	nodoFiltro *primero;
+	nodoFiltro *ultimo;
+	listaDobCircuFiltros();//constructor
+	void insertar(string);
+	void imprimir();
+	void vaciar();
+};
+
+listaDobCircuFiltros::listaDobCircuFiltros()
+{
+	this->primero = NULL;
+	this->ultimo = NULL;
+}
+
+void listaDobCircuFiltros::insertar(string _filtro)
+{
+	nodoFiltro *nuevo = new nodoFiltro(_filtro);
+
+	if (this->primero==NULL)//si esta vacia
+	{
+		this->primero = nuevo;
+		this->primero->siguiente = primero;
+		nuevo->anterior = ultimo;
+		this->ultimo = nuevo;
+		
+	}else{
+
+		this->ultimo->siguiente = nuevo;
+		nuevo->siguiente = primero;
+		nuevo->anterior = ultimo;
+		this->ultimo = nuevo;
+		this->primero->anterior = ultimo;
+
+	}
+}
+
+void listaDobCircuFiltros::imprimir()
+{
+	if (this->primero!=NULL)
+	{
+		nodoFiltro *actual = this->primero;
+		do
+		{
+			cout << actual->nomFiltro << " <--->  "<< endl;
+			if (actual->apuntaCopiaCubo!=NULL)
+			{
+				NodoCopiaCubo *aux = actual->apuntaCopiaCubo;
+				string filas = "";
+
+				if (aux != NULL)
+				{
+					while (aux != NULL) //me recorre la lista copia cubo en este sentido -> -> ->
+					{
+						cout << aux->indice << " <->  " << aux->nomArchivo << endl;
+
+						nodoMatriz *aux2 = aux->apuntaRaizDeMatriz; //se posiciona en la raiz de la matriz
+
+						while (aux2 != NULL) //me recorre la matriz para abajo
+						{
+							filas += "(" + to_string(aux2->x) + "," + to_string(aux2->y) + "," + aux2->dato + ")";
+							nodoMatriz *aux3 = aux2->siguiente; //aux2 va hacia abajo, entonces aux3=aux2->siguiente para recorrer toda una fila
+
+							while (aux3 != NULL) //me recorre cada fila de la matriz en este sentido -> -> ->
+							{
+								filas += "(" + to_string(aux3->x) + "," + to_string(aux3->y) + "," + aux3->dato + ")";
+								aux3 = aux3->siguiente;
+							}
+
+							cout << filas << endl;
+							filas = "";
+							aux2 = aux2->abajo;
+						}
+
+						aux = aux->siguiente;
+					}
+
+				}
+
+			}
+			actual = actual->siguiente;
+		} while (actual != primero);
+	}	
+
+	
+}
+
+void listaDobCircuFiltros::vaciar()
+{
+	this->primero = NULL;
+	this->ultimo = NULL;
+}
+
+//////////////////////////////////////////////////////////////////// LISTA PARA LINEALIZACION /////////////////////////////////////////////////////////////////
+
+class nodoLinealizacion{
+public:
+	nodoLinealizacion *siguiente;
+	string dato;
+	nodoLinealizacion(string); //constructor
+};
+
+nodoLinealizacion::nodoLinealizacion(string _dato)
+{
+	this->siguiente = NULL;
+	this->dato = _dato;
+}
+
+class listaLinealizacion{
+public:
+	nodoLinealizacion *raizListLinealiz;
+	nodoLinealizacion *primero;
+	nodoLinealizacion *ultimo;
+	listaLinealizacion(); //constructor
+	void insertar(string);
+	string textoGraphviz();
+	void imprimir();
+	void vaciar();
+};
+
+listaLinealizacion::listaLinealizacion()
+{
+	this->raizListLinealiz = new nodoLinealizacion("INICIO");
+	this->primero = NULL;
+	this->ultimo = NULL;
+}
+
+void listaLinealizacion::insertar(string _dato)
+{
+	nodoLinealizacion *nuevo = new nodoLinealizacion(_dato);
+
+	if (this->raizListLinealiz->siguiente==NULL) //vacia
+	{
+		this->raizListLinealiz->siguiente = nuevo;
+		this->primero = nuevo;
+		this->ultimo = nuevo;
+	}
+	else{
+		this->ultimo->siguiente = nuevo;
+		this->ultimo = nuevo;
+	}
+}
+
+string listaLinealizacion::textoGraphviz()
+{
+	string cadena = "";
+	nodoLinealizacion *temp = this->raizListLinealiz;
+	while (temp != NULL)
+	{
+		if (temp->siguiente!=NULL)
+		{
+			cadena += temp->dato + "->" + temp->siguiente->dato;
+		}
+		temp = temp->siguiente;
+	}
+	return cadena;
+}
+
+void listaLinealizacion::imprimir()
+{
+	nodoLinealizacion *temp = this->raizListLinealiz;
+	while (temp!=NULL)
+	{
+		cout << temp->dato << endl;
+		temp = temp->siguiente;
+	}
+}
+
+void listaLinealizacion::vaciar()
+{
+	this->raizListLinealiz->siguiente = NULL;
+	this->primero = NULL;
+	this->ultimo = NULL;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // ------------------------------------> GLOBALES <----------------------------------------
 
-listaArchivos larch; //objeto para insertar en lista archivos y crear matriz
-copiaCubo copCubo;
+listaArchivos larch; //(cubo original)
+copiaCubo copCubo; // (copia cubo)
+Pila miPila; // (ayuda para filtros en ejes)
+listaDobCircuFiltros listFiltros;
+listaLinealizacion listLinealizacion;
 
 //se crea el cubo, va creando nodo en la la lista archivos y luego creando matriz para cada nodo
 void CrearCuboDisperso()
@@ -1191,7 +1486,7 @@ void copiaCuboDisperso()
 			string nom = aux->nomArchivo;
 			copCubo.insertarElemento(indi,nom); //lo agrego a la lista copiarcubo
 
-			nodoMatriz *aux2 = aux->apuntaRaizDeMatriz->siguiente->abajo; //se posiciona en coordenada (0,0)
+			nodoMatriz *aux2 = aux->apuntaRaizDeMatriz->abajo; //se posiciona en coordenada (-1,0)
 
 			Matriz nm; //nueva matriz
 
@@ -1203,16 +1498,19 @@ void copiaCuboDisperso()
 				while (auxNodoCopia != NULL) //mientras sea distinto de NULL ejecuta
 				{
 					if (auxNodoCopia->indice == indi) //cuando ya lo encuentra entra..
-					{						
+					{
 							while (aux2 != NULL) //me recorre la matriz para abajo, aux2 empieza en (0,0)
 							{
-								nm.insertarElemento(aux2->x, aux2->y, aux2->dato); //me inserta en la matriz
+								nodoMatriz *aux3 = aux2->siguiente; //se posiciona en el siguiente de la cabecera Y
 
-								nodoMatriz *aux3 = aux2->siguiente; //aux2 va hacia abajo, entonces aux3=aux2->siguiente para recorrer toda una fila
-								while (aux3 != NULL) //me recorre cada fila de la matriz en este sentido -> -> ->
+								nm.insertarElemento(aux3->x, aux3->y, aux3->dato); //me inserta en la matriz
+
+								nodoMatriz *aux4 = aux3->siguiente; //se posiciona en la columa (1)
+
+								while (aux4 != NULL) //me recorre cada fila de la matriz en este sentido -> -> ->
 								{
-									nm.insertarElemento(aux3->x, aux3->y, aux3->dato); //me inserta en la matriz
-									aux3 = aux3->siguiente;
+									nm.insertarElemento(aux4->x, aux4->y, aux4->dato); //me inserta en la matriz
+									aux4 = aux4->siguiente;
 								}
 								aux2 = aux2->abajo;
 							}							
@@ -1243,34 +1541,22 @@ void modificarCapaEspecificaDeCuboNegativo(string nomCapa)
 
 			if (b==nomCapa)
 			{
-				nodoMatriz *aux2 = aux->apuntaRaizDeMatriz->siguiente->abajo; //se posiciona en (0,0)
+				nodoMatriz *aux2 = aux->apuntaRaizDeMatriz->abajo; //se posiciona en (-1,0)
 
 				while (aux2 != NULL) //me recorre la matriz para abajo
 				{
-					if (aux2->dato!="x")
-					{
-						cout << aux2->dato << endl;
-						string a = obtenerRGBnegativo(aux2->dato);
-						aux2->dato = a;
-					}
-					nodoMatriz *aux3 = aux2->siguiente; //aux2 va hacia abajo, entonces aux3=aux2->siguiente para recorrer toda una fila
+					nodoMatriz *temp = aux2->siguiente;//pos (0,0)
 
-					while (aux3 != NULL) //me recorre cada fila de la matriz en este sentido -> -> ->
+					while (temp != NULL)
 					{
-						if (aux3->dato != "x")
-						{
-							cout << aux3->dato << endl;
-							string a = obtenerRGBnegativo(aux3->dato);
-							aux3->dato = a;
-						}
-						aux3 = aux3->siguiente;
+						string a = obtenerRGBnegativo(temp->dato);
+						temp->dato = a;
+						temp = temp->siguiente;
 					}
 
-					//cout << filas << endl;
-					filas = "";
 					aux2 = aux2->abajo;
 				}
-			}		
+			}
 
 			aux = aux->siguiente;
 		}
@@ -1278,40 +1564,49 @@ void modificarCapaEspecificaDeCuboNegativo(string nomCapa)
 	}
 }
 
-void modificarTodasLasCapasDeCuboNegativo()
+bool verificarSiExisteCapa(string nomCapa)
 {
 	NodoCopiaCubo *aux = copCubo.raizCopCubo->siguiente;
-	string filas = "";
+	bool bandera = false;
 
 	if (aux != NULL)
 	{
 		while (aux != NULL) //me recorre la listaArchivos en este sentido -> -> ->
 		{
-			nodoMatriz *aux2 = aux->apuntaRaizDeMatriz->siguiente->abajo; //se posiciona en (0,0)
+			string a = aux->nomArchivo;
+			string b = a.substr(0, a.length() - 4);
+
+			if (b == nomCapa)
+			{
+				bandera = true;
+			}
+			aux = aux->siguiente;
+		}
+	}
+	return bandera;
+}
+
+void modificarTodasLasCapasDeCuboNegativo()
+{
+	NodoCopiaCubo *aux = copCubo.raizCopCubo->siguiente;
+
+	if (aux != NULL)
+	{
+		while (aux != NULL) //me recorre la listaArchivos en este sentido -> -> ->
+		{
+			nodoMatriz *aux2 = aux->apuntaRaizDeMatriz->abajo; //se posiciona en (-1,0)
 
 			while (aux2 != NULL) //me recorre la matriz para abajo
 			{
-				if (aux2->dato != "x")
-				{
-					cout << aux2->dato << endl;
-					string a = obtenerRGBnegativo(aux2->dato);
-					aux2->dato = a;
-				}
-				nodoMatriz *aux3 = aux2->siguiente; //aux2 va hacia abajo, entonces aux3=aux2->siguiente para recorrer toda una fila
+				nodoMatriz *temp = aux2->siguiente;//pos (0,0)
 
-				while (aux3 != NULL) //me recorre cada fila de la matriz en este sentido -> -> ->
+				while (temp!=NULL)
 				{
-					if (aux3->dato != "x")
-					{
-						cout << aux3->dato << endl;
-						string a = obtenerRGBnegativo(aux3->dato);
-						aux3->dato = a;
-					}
-					aux3 = aux3->siguiente;
+					string a = obtenerRGBnegativo(temp->dato);
+					temp->dato = a;
+					temp = temp->siguiente;
 				}
 
-				//cout << filas << endl;
-				filas = "";
 				aux2 = aux2->abajo;
 			}			
 
@@ -1345,6 +1640,266 @@ string obtenerRGBnegativo(string _rgb)
 	return dev;
 }
 
+void filtroEspejoEjeX()
+{
+	NodoCopiaCubo *aux = copCubo.raizCopCubo->siguiente;
+	miPila.raizPila->siguiente = NULL; //limpio Pila
+
+	if (aux != NULL)
+	{
+		while (aux != NULL) //me recorre la listaArchivos en este sentido -> -> ->
+		{
+			nodoMatriz *aux2 = aux->apuntaRaizDeMatriz->siguiente->abajo; //se posiciona en (0,0)
+
+			while (aux2 != NULL) //me recorre la matriz para abajo
+			{				
+				nodoMatriz *aux3 = aux2; //(primer recorrido) para que empieze en columna 0 hacia -->
+				nodoMatriz *aux4 = aux2; //(segundo recorrido) para que empieze en columna 0 hacia -->
+
+				while (aux3 != NULL) //me recorre cada fila de la matriz en este sentido -> -> ->
+				{
+					miPila.insertar(aux3->dato); //inserto en pila
+					aux3 = aux3->siguiente;
+				}
+
+				while (aux4 != NULL) //me recorre cada fila de la matriz en este sentido -> -> ->
+				{
+					string ob = miPila.eliminar(); //elimino y extraigo en pila
+					aux4->dato = ob; //modifico en matriz
+					aux4 = aux4->siguiente;
+				}
+
+				aux2 = aux2->abajo;
+			}
+			aux = aux->siguiente;
+		}
+
+	}
+}
+
+void filtroEspejoEjeY()
+{
+	NodoCopiaCubo *aux = copCubo.raizCopCubo->siguiente;
+	miPila.raizPila->siguiente = NULL; //limpio Pila
+
+	if (aux != NULL)
+	{
+		while (aux != NULL) //me recorre la listaArchivos en este sentido -> -> ->
+		{
+			nodoMatriz *aux2 = aux->apuntaRaizDeMatriz->siguiente->abajo; //se posiciona en (0,0)
+
+			while (aux2 != NULL) //me recorre la matriz para -->
+			{
+				nodoMatriz *aux3 = aux2; //(primer recorrido) para que empieze en columna 0 hacia bajo
+				nodoMatriz *aux4 = aux2; //(segundo recorrido) para que empieze en columna 0 hacia bajo
+
+				while (aux3 != NULL) //me recorre cada columna de la matriz 
+				{
+					miPila.insertar(aux3->dato); //inserto en pila
+					aux3 = aux3->abajo;
+				}
+
+				while (aux4 != NULL) //me recorre cada columna de la matriz 
+				{
+					string ob = miPila.eliminar(); //elimino y extraigo en pila
+					aux4->dato = ob; //modifico en matriz
+					aux4 = aux4->abajo;
+				}
+
+				aux2 = aux2->siguiente;
+			}
+			aux = aux->siguiente;
+		}
+
+	}
+}
+
+void ReporteGraphvizTodasLasCapas()
+{
+	NodoCopiaCubo *aux = copCubo.raizCopCubo->siguiente;
+	string cadena = "";
+
+	if (aux != NULL)
+	{
+		while (aux != NULL) //me recorre la listaArchivos en este sentido -> -> ->
+		{
+			cadena = "";
+			string nomCapExt = aux->nomArchivo; //captura el nombre de la capa
+			string nomCap = nomCapExt.substr(0, nomCapExt.length() - 4); //le quito el .csv
+
+			//nodos que me serviran para los pasos correspondientes
+			nodoMatriz *aux2 = aux->apuntaRaizDeMatriz; //se posiciona en la raiz de la matriz (-1,-1)
+			nodoMatriz *aux3 = aux->apuntaRaizDeMatriz;
+			nodoMatriz *aux4 = aux->apuntaRaizDeMatriz->siguiente; //se posiciona en (-1,0)
+			nodoMatriz *aux5 = aux->apuntaRaizDeMatriz->siguiente;
+			nodoMatriz *aux6 = aux->apuntaRaizDeMatriz;
+			nodoMatriz *aux7 = aux->apuntaRaizDeMatriz->siguiente->abajo; //me posiciono en (0,0)
+
+			//-->PASO 1: recororo toda mi cabecera Y para crear los label de la cabecera Y
+			while (aux2 != NULL) 
+			{
+				cadena += "\"(" + to_string(aux2->x) + "," + to_string(aux2->y) + ")" + "\"" + "[ label = " + "\"" + "(" + to_string(aux2->x) + "," + to_string(aux2->y) + ") " + aux2->dato + "\"" + ", width = 1.5, style = filled, fillcolor = firebrick1, group =" + to_string(aux2->x) + "] \n";
+				aux2 = aux2->abajo;
+			}
+
+			//-->PASO 2: recorro cabecera Y para hacer las relaciones de los nodos (anterior se crean los label) aqui se hacen las relaciones (solo entre cabecera Y)
+			while (aux3!=NULL) 
+			{
+				if (aux3->abajo!=NULL)
+				{
+					cadena += "\"(" + to_string(aux3->x) + "," + to_string(aux3->y) + ")" + "\"" + "->" + "\"(" + to_string(aux3->abajo->x) + "," + to_string(aux3->abajo->y) + ")" + "\""+"\n";
+					cadena += "\"(" + to_string(aux3->abajo->x) + "," + to_string(aux3->abajo->y) + ")" + "\"" + "->" + "\"(" + to_string(aux3->x) + "," + to_string(aux3->y) + ")" + "\""+"\n";
+				}
+				aux3 = aux3->abajo;
+			}
+
+			//-->PASO 3: recororo toda mi cabecera X para crear los label de la cabecera X
+			while (aux4 != NULL) 
+			{
+				cadena += "\"(" + to_string(aux4->x) + "," + to_string(aux4->y) + ")" + "\"" + "[ label = " + "\"" + "(" + to_string(aux4->x) + "," + to_string(aux4->y) + ") " + aux4->dato + "\"" + ", width = 1.5, style = filled, fillcolor = firebrick1, group =" + to_string(aux4->x) + "] \n";
+				aux4 = aux4->siguiente;
+			}
+
+			//-->PASO 4: recorro cabecera X para hacer las relaciones de los nodos (anterior se crean los label) aqui se hacen las relaciones (solo entre cabecera X)
+			while (aux5 != NULL) 
+			{				
+				cadena += "\"(" + to_string(aux5->x) + "," + to_string(aux5->y) + ")" + "\"" + "->" + "\"(" + to_string(aux5->anterior->x) + "," + to_string(aux5->anterior->y) + ")" + "\"" + "\n";
+				cadena += "\"(" + to_string(aux5->anterior->x) + "," + to_string(aux5->anterior->y) + ")" + "\"" + "->" + "\"(" + to_string(aux5->x) + "," + to_string(aux5->y) + ")" + "\"" + "\n";
+				
+				aux5 = aux5->siguiente;
+			}
+
+			//-->PASO 5: aqui hago que mis filas se elineen segun la columna que le corresponde (group)
+			cadena += "{rank=same;";
+
+			while (aux6 != NULL) 
+			{				
+				cadena += "\"(" + to_string(aux6->x) + "," + to_string(aux6->y) + ")" + "\"" + ";";
+				
+				aux6 = aux6->siguiente;
+			}
+			cadena += "} \n";
+
+			//-->PASO 6: recorro mi matriz desde (0,0) hacia abajo
+			while (aux7!=NULL)
+			{
+				//(PASO 7,8,9,10 se ejecuta cada vez que aux7 da una vuelta)
+				//-->PASO 7
+				nodoMatriz *aux8 = aux7;
+				nodoMatriz *aux9 = aux7;
+				nodoMatriz *aux10 = aux7->anterior; // aux7->anterior para que me alinee la fila con la cabecera en Y (para que tome en cuenta la cabecera Y )
+
+				//-->PASO 8: recororo toda mi fila en X para crear los label
+				while (aux8!=NULL) 
+				{
+					cadena += "\"(" + to_string(aux8->x) + "," + to_string(aux8->y) + ")" + "\"" + "[ label = " + "\"" + "(" + to_string(aux8->x) + "," + to_string(aux8->y) + ") " + aux8->dato + "\"" + ", width = 1.5, style = filled, group =" + to_string(aux8->x) + "] \n";
+					
+					aux8 = aux8->siguiente;
+				}
+				//-->PASO 9: ya creados los label anteriormente hago las relaciones entre nodos
+				while (aux9!=NULL)
+				{
+					cadena += "\"(" + to_string(aux9->x) + "," + to_string(aux9->y) + ")" + "\"" + "->" + "\"(" + to_string(aux9->anterior->x) + "," + to_string(aux9->anterior->y) + ")" + "\"" + "\n";
+					cadena += "\"(" + to_string(aux9->anterior->x) + "," + to_string(aux9->anterior->y) + ")" + "\"" + "->" + "\"(" + to_string(aux9->x) + "," + to_string(aux9->y) + ")" + "\"" + "\n";
+					cadena += "\"(" + to_string(aux9->arriba->x) + "," + to_string(aux9->arriba->y) + ")" + "\"" + "->" + "\"(" + to_string(aux9->x) + "," + to_string(aux9->y) + ")" + "\"" + "\n";
+					cadena += "\"(" + to_string(aux9->x) + "," + to_string(aux9->y) + ")" + "\"" + "->" + "\"(" + to_string(aux9->arriba->x) + "," + to_string(aux9->arriba->y) + ")" + "\"" + "\n";
+					
+					aux9 = aux9->siguiente;
+				}
+
+				//-->PASO 10: aqui hago que mis filas se elineen segun la columna que le corresponde (group)
+				cadena += "{rank=same;";
+
+				while (aux10 != NULL) // recorro X para hacer la linealizacion de nodos
+				{
+					cadena += "\"(" + to_string(aux10->x) + "," + to_string(aux10->y) + ")" + "\"" + ";";					
+					aux10 = aux10->siguiente;
+				}
+				cadena += "} \n";
+
+				aux7 = aux7->abajo;
+			}
+
+			graphvizEscrituraParaCapa(nomCap, cadena);
+			aux = aux->siguiente;
+		}
+
+	}
+}
+
+void ReporteGraphvizLinealizacionPorFilaTodasCapas()
+{
+	NodoCopiaCubo *aux = copCubo.raizCopCubo->siguiente; 
+	string cadena = "";
+
+	if (aux != NULL)
+	{
+		while (aux != NULL) //me recorre la lista en este sentido -> -> ->
+		{
+			cadena = "";
+			string nomCapExt = aux->nomArchivo; //captura el nombre de la capa
+			string nomCap = nomCapExt.substr(0, nomCapExt.length() - 4); //le quito el .csv
+			nomCap += "LinealizacionPorFila";
+
+			nodoMatriz *aux2 = aux->apuntaRaizDeMatriz->abajo; //(-1,0)
+
+			while (aux2 != NULL) //me recorre la matriz para abajo
+			{
+				nodoMatriz *aux3 = aux2->siguiente; //
+
+				while (aux3 != NULL) //me recorre cada fila de la matriz en este sentido -> -> ->
+				{		
+					cadena = "\"(" + to_string(aux3->x) + "," + to_string(aux3->y) + ") " + aux3->dato + "\"";
+					listLinealizacion.insertar(cadena);
+					aux3 = aux3->siguiente;
+				}
+
+				aux2 = aux2->abajo;
+			}
+			string cad = listLinealizacion.textoGraphviz();
+			graphvizEscrituraParaLinealizacion(nomCap, cad);
+			listLinealizacion.vaciar();
+			aux = aux->siguiente;
+		}
+	}
+}
+
+void ReporteGraphvizLinealizacionPorColumnaTodasCapas()
+{
+	NodoCopiaCubo *aux = copCubo.raizCopCubo->siguiente;
+	string cadena = "";
+
+	if (aux != NULL)
+	{
+		while (aux != NULL) //me recorre la lista en este sentido -> -> ->
+		{
+			cadena = "";
+			string nomCapExt = aux->nomArchivo; //captura el nombre de la capa
+			string nomCap = nomCapExt.substr(0, nomCapExt.length() - 4); //le quito el .csv
+			nomCap += "LinealizacionPorColumna";
+
+			nodoMatriz *aux2 = aux->apuntaRaizDeMatriz->siguiente; //(0,-1)
+
+			while (aux2 != NULL) //me recorre la matriz para -> ->
+			{
+				nodoMatriz *aux3 = aux2->abajo; //
+
+				while (aux3 != NULL) //me recorre cada fila de la matriz en este sentido -> -> ->
+				{
+					cadena = "\"(" + to_string(aux3->x) + "," + to_string(aux3->y) + ") " + aux3->dato + "\"";
+					listLinealizacion.insertar(cadena);
+					aux3 = aux3->abajo;
+				}
+
+				aux2 = aux2->siguiente;
+			}
+			string cad = listLinealizacion.textoGraphviz();
+			graphvizEscrituraParaLinealizacion(nomCap, cad);
+			listLinealizacion.vaciar();
+			aux = aux->siguiente;
+		}
+	}
+}
 
 void guardarConfig(string _archivo)
 {
@@ -1386,6 +1941,435 @@ void guardarConfig(string _archivo)
 	}
 }
 
+void graphvizEscrituraParaCapa(string _nomCapa, string _texto)
+{
+	ofstream archivo;
+	archivo.open(_nomCapa+".dot", ios::out);
+
+	if (archivo.fail()){
+		printf("error");
+	}
+
+	string est = _texto;
+	archivo << "digraph G { \n";
+	archivo << "node [shape=box]; \n";
+	archivo << "graph [splines=ortho, nodesep=0.5]; \n";
+	archivo << est;
+	archivo << "\n }";
+	archivo.close();
+
+	char* charr;
+	string dott = "dot -Tpng " + _nomCapa + ".dot -o " + _nomCapa + ".png";
+	charr = (char *)dott.c_str();
+	system(charr);
+	//system("nohup display ruta_y_nombre_de_imagen_generada.png &");
+}
+
+void graphvizEscrituraParaLinealizacion(string _nomCapa, string _texto)
+{
+	ofstream archivo;
+	archivo.open(_nomCapa + ".dot", ios::out);
+
+	if (archivo.fail()){
+		printf("error");
+	}
+
+	string est = _texto;
+	archivo << "digraph G { \n";
+	archivo << "rankdir=\"LR\" \n";
+	archivo << "node [shape = record,height=.1,width=0.9]; \n";
+	archivo << est;
+	archivo << "\n }";
+	archivo.close();
+
+	char* charr;
+	string dott = "dot -Tpng " + _nomCapa + ".dot -o " + _nomCapa + ".png";
+	charr = (char *)dott.c_str();
+	system(charr);
+}
+
+void guardarCuboEnListaDoble(string _filtro)
+{
+	if (listFiltros.primero != NULL)
+	{
+		nodoFiltro *actual = listFiltros.primero;
+
+		do
+		{
+			if (actual->nomFiltro==_filtro) //cuando encuentre el nombre del filtro
+			{
+				if (actual->apuntaCopiaCubo==NULL) // si aun no hay cubo en ese nodo
+				{
+					actual->apuntaCopiaCubo = copCubo.raizCopCubo; //se enlaza o guarda en el nodo el cubo
+					break;
+				}
+				else{
+					printf("\n--> YA APLICO ESTE FILTRO A LA IMAGEN!\n");
+				}
+				
+			}
+			actual = actual->siguiente;
+
+		} while (actual != listFiltros.primero);
+	}
+}
+
+void generarHTML()
+{
+	string cadena = "";
+	cadena += "<!DOCTYPE html> \n";
+	cadena += "<head> \n";
+	cadena += "<link rel = \"stylesheet\" href = \"si.css\"> \n";
+	cadena += "</head> \n";
+	cadena += "<body> \n";
+	cadena += "<div class = \"canvas\"> \n";
+
+	int image_width = config[0];
+	int image_height = config[1];
+	int pixel_width = config[2];
+	int pixel_height = config[3];
+
+	int op = image_width * image_height;
+
+	for (int i = 0; i < op; i++)
+	{
+		cadena += "<div class=\"pixel\"></div> \n";
+	}
+
+	cadena += "</div> \n";
+	cadena += "</body> \n";
+	cadena += "</html> \n";
+
+	ofstream archivo;
+	archivo.open("prueba.html", ios::out);
+
+	if (archivo.fail()){
+		printf("error");
+	}
+
+	archivo << cadena;
+
+	archivo.close();
+}
+
+void generarCSS()
+{
+	string cadena = "";
+	cadena += ".canvas { \n";
+	cadena += "background: #bed10f; \n";
+
+	int image_width = config[0];
+	int image_height = config[1];
+	int pixel_width = config[2];
+	int pixel_height = config[3];
+	int op = image_width * pixel_width;
+
+	cadena += "width: " + to_string(op) + "px; \n";
+	cadena += "height: " + to_string(op) + "px; \n";
+	cadena += " } \n";
+	cadena += ".pixel{ \n";
+	cadena += "width: " + to_string(pixel_width) + "px; \n";
+	cadena += "height: " + to_string(pixel_height) + "px; \n";
+	cadena += "float:left; \n";
+	cadena += "} \n";
+	
+	NodoCopiaCubo *aux = copCubo.raizCopCubo->siguiente;
+
+	if (aux != NULL)
+	{
+		while (aux != NULL) //me recorre la lista en este sentido -> -> ->
+		{
+			nodoMatriz *aux2 = aux->apuntaRaizDeMatriz->abajo; //(-1,0)
+
+			while (aux2 != NULL) //me recorre la matriz para abajo
+			{
+				nodoMatriz *aux3 = aux2->siguiente; //
+
+				while (aux3 != NULL) //me recorre cada fila de la matriz en este sentido -> -> ->
+				{
+					//FORMULA: (FILAACTUAL*TAMANIOPIXEL)+(COLUMNAACTUAL+1)
+					int filaActual = 0;
+					int tamPixel = 0;
+					int columnaActual = 0;
+					int columnaActualn = 0;
+					int op1 = 0;
+					int op2 = 0;
+					filaActual = aux3->y; //FILA ACTUAL
+					tamPixel = config[0]; //TAMANIOPIXEL
+					columnaActual = aux3->x;
+					columnaActualn = columnaActual + 1;//COLUMNAACTUAL +1
+					op1 = tamPixel*filaActual; // (FILAACTUAL*TAMANIOPIXEL)
+					op2 = op1 + columnaActualn; // (FILAACTUAL*TAMANIOPIXEL)+(COLUMNAACTUAL+1)
+					string hexad = separarRGB_Y_Extraer_Hexa(aux3->dato);
+					cadena += ".pixel:nth-child(" + to_string(op2) + "){ \n";
+					cadena += "background: " + hexad + "; \n";
+					cadena += "} \n\n";
+
+					aux3 = aux3->siguiente;
+				}
+
+				aux2 = aux2->abajo;
+			}
+			aux = aux->siguiente;
+		}
+	}
+
+	ofstream archivo;
+	archivo.open("si.css", ios::out);
+
+	if (archivo.fail()){
+		printf("error");
+	}
+
+	archivo << cadena;
+
+	archivo.close();
+
+}
+
+///////////////////////////////////////////////////////// CONVERSION RGB A HEXA ///////////////////////////////////////////////////////////////
+
+string separarRGB_Y_Extraer_Hexa(string cad)
+{
+	string d = cad;
+	int pos = d.find("-"); //primer guion
+	string e = d.substr(0, pos); //obtiene rgbR
+	string f = d.substr(pos + 1, d.length() - 1);//resto de cadena
+	int pos2 = f.find("-");
+	string g = f.substr(0, pos2);//obtiene rgbG
+	string h = f.substr(pos2 + 1, f.length() - 1);//obtiene rgbB
+
+	int rgb1 = atoi(e.c_str());
+	int rgb2 = atoi(g.c_str());
+	int rgb3 = atoi(h.c_str());
+
+	string a = rgbR(rgb1);
+	string b = rgbG(rgb2);
+	string c = rgbR(rgb3);
+
+	string hexa = "#";
+	hexa += a;
+	hexa += b;
+	hexa += c;
+
+	return hexa;
+}
+
+int devolverValor(double num)
+{
+	double a, b;
+	double aux;
+	a = 1;
+	b = 1;
+	aux = 1;
+
+	while (true)
+	{
+		aux = a / b;
+
+		if (aux<num) //si aux es menor que el numero recibido
+		{
+			a++;
+		}
+		else if (aux>num){ //si aux es mayor que el numero recibido
+			a--;
+			b++;
+		}
+
+		if (aux == num) // si ya encontro la division se sale
+		{
+			break;
+		}
+	}
+
+	while (b < 10) //mientras b (denominador) sea < 10
+	{
+		a = a * 2;
+		b = b * 2;
+	}
+
+	return (int)a;
+
+}
+
+string rgbR(int num)
+{
+	string cadena = "";
+	double a = 16;
+	int b = num / 16; //valor exacto 
+	double c = num / a; //valor con decimal
+	double d = c - b; //residuo
+	int e = devolverValor(d);
+
+	if (b == 10)
+	{
+		cadena += "A";
+	}
+	else if (b == 11){
+		cadena += "B";
+	}
+	else if (b == 12){
+		cadena += "B";
+	}
+	else if (b == 13){
+		cadena += "D";
+	}
+	else if (b == 14){
+		cadena += "E";
+	}
+	else if (b == 15){
+		cadena += "F";
+	}
+	else{
+		cadena += to_string(b);
+	}
+
+	if (e == 10)
+	{
+		cadena += "A";
+	}
+	else if (e == 11){
+		cadena += "B";
+	}
+	else if (e == 12){
+		cadena += "B";
+	}
+	else if (e == 13){
+		cadena += "D";
+	}
+	else if (e == 14){
+		cadena += "E";
+	}
+	else if (e == 15){
+		cadena += "F";
+	}
+	else{
+		cadena += to_string(e);
+	}
+
+	return cadena;
+
+}
+
+string rgbG(int num)
+{
+	string cadena = "";
+	double a = 16;
+	int b = num / 16; //valor exacto 
+	double c = num / a; //valor con decimal
+	double d = c - b; //residuo
+	int e = devolverValor(d);
+
+	if (b == 10)
+	{
+		cadena += "A";
+	}
+	else if (b == 11){
+		cadena += "B";
+	}
+	else if (b == 12){
+		cadena += "B";
+	}
+	else if (b == 13){
+		cadena += "D";
+	}
+	else if (b == 14){
+		cadena += "E";
+	}
+	else if (b == 15){
+		cadena += "F";
+	}
+	else{
+		cadena += to_string(b);
+	}
+
+	if (e == 10)
+	{
+		cadena += "A";
+	}
+	else if (e == 11){
+		cadena += "B";
+	}
+	else if (e == 12){
+		cadena += "B";
+	}
+	else if (e == 13){
+		cadena += "D";
+	}
+	else if (e == 14){
+		cadena += "E";
+	}
+	else if (e == 15){
+		cadena += "F";
+	}
+	else{
+		cadena += to_string(e);
+	}
+
+	return cadena;
+}
+
+string rgbB(int num)
+{
+	string cadena = "";
+	double a = 16;
+	int b = num / 16; //valor exacto 
+	double c = num / a; //valor con decimal
+	double d = c - b; //residuo
+	int e = devolverValor(d);
+
+	if (b == 10)
+	{
+		cadena += "A";
+	}
+	else if (b == 11){
+		cadena += "B";
+	}
+	else if (b == 12){
+		cadena += "B";
+	}
+	else if (b == 13){
+		cadena += "D";
+	}
+	else if (b == 14){
+		cadena += "E";
+	}
+	else if (b == 15){
+		cadena += "F";
+	}
+	else{
+		cadena += to_string(b);
+	}
+
+	if (e == 10)
+	{
+		cadena += "A";
+	}
+	else if (e == 11){
+		cadena += "B";
+	}
+	else if (e == 12){
+		cadena += "B";
+	}
+	else if (e == 13){
+		cadena += "D";
+	}
+	else if (e == 14){
+		cadena += "E";
+	}
+	else if (e == 15){
+		cadena += "F";
+	}
+	else{
+		cadena += to_string(e);
+	}
+
+	return cadena;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
 void menu()
 {
 	int opcion;
@@ -1399,7 +2383,7 @@ void menu()
 		printf("6. Reportes \n");
 		printf("7. Salir \n");
 
-		printf("\n ELIJA UNA OPCION: \n");
+		printf("\n--> ELIJA UNA OPCION: \n");
 		cin >> opcion;
 		opcionesMenu(opcion);
 	} while (true);
@@ -1411,24 +2395,29 @@ void opcionesMenu(int _opcion)
 	{
 	case 1:
 		CrearCuboDisperso();
-		larch.imprimir();
-		break;
-	case 2:
-		larch.raizArch->siguiente = NULL; //limpiar lista
-		break;
-	case 3:
+		//larch.imprimir();
 		copiaCuboDisperso();
-		break;
-	case 4:
-		//modificarCapaEspecificaDeCubo("boots");
-		modificarTodasLasCapasDeCuboNegativo();
-		break;
-	case 5:
+		copCubo.imprimir();
+		filtroEspejoEjeX();
 		copCubo.imprimir();
 		break;
+	case 2:
+		//listFiltros.imprimir();
+		//larch.raizArch->siguiente = NULL; //limpiar lista
+		break;
+	case 3:
+		subMenuFiltros();
+		break;
+	case 4:
+		break;
+	case 5:
+		generarHTML();
+		generarCSS();
+		break;
 	case 6:
-		printf("\n-----------------\n\n");
-		//larch.linealizacionPorColumna();
+		//ReporteGraphvizTodasLasCapas();
+		//ReporteGraphvizLinealizacionPorFilaTodasCapas();
+		//ReporteGraphvizLinealizacionPorColumnaTodasCapas();
 		break;
 	case 7:
 		exit(0);
@@ -1440,9 +2429,101 @@ void opcionesMenu(int _opcion)
 int main()
 {
 	menu();
-	
+
 	system("pause");
 	return 0;
+}
+
+/////////////////////////////////////////////////////////////// SUB MENU FILTROS //////////////////////////////////////////////////////////////////////////////
+
+void subMenuFiltros()
+{
+	string op1;
+	printf(" \n -------FILTROS------ \n");
+	printf("1. Filtro a Imagen Completa \n");
+	printf("2. Filtro a Una Capa en Especifico \n");
+	printf("\n ELIJA UNA OPCION: \n");
+	cin >> op1;
+	if (op1.compare("1")==0)
+	{
+		subsubMenuFiltrosOp1();
+	}
+	else if (op1.compare("2") == 0){
+		subsubMenuFiltrosOp2();
+	}
+	else{
+		printf("\n--> OPCION INVALIDA \n");
+	}
+}
+
+void subsubMenuFiltrosOp1() // Imagen completa
+{
+	string op2;
+	printf(" \n -------TIPOS DE FILTROS------ \n");
+	printf("1. Negative (Negativo) \n");
+	printf("2. Grayscale (Escala De Grises) \n");
+	printf("3. X-Mirror (Espejo en eje X) \n");
+	printf("4. Y-Mirror (Espejo en eje Y) \n");
+	printf("5. Double Mirror (Espejo En Ambos Ejes) \n");
+	printf("\n--> ELIJA UNA OPCION: \n");
+	cin >> op2;
+	if (op2.compare("1") == 0)
+	{
+		modificarTodasLasCapasDeCuboNegativo();
+		listFiltros.insertar("NegativoEnTodasCapas"); //se guarda primero en la lista doble
+		guardarCuboEnListaDoble("NegativoEnTodasCapas"); //busca el nodo y lo enlaza al cubo
+	}
+	else if (op2.compare("2") == 0)
+	{
+		
+	}
+	else if (op2.compare("3") == 0)
+	{
+
+	}
+	else if (op2.compare("4") == 0)
+	{
+
+	}
+	else if (op2.compare("5") == 0)
+	{
+
+	}
+	else{
+		printf("\n--> OPCION INVALIDA \n");
+	}
+	
+}
+
+void subsubMenuFiltrosOp2() // A capa especifica
+{
+	string op2;
+	printf(" \n -------TIPOS DE FILTROS------ \n");
+	printf("1. Negative (Negativo) \n");
+	printf("2. Grayscale (Escala De Grises) \n");
+	printf("\n--> ELIJA UNA OPCION: \n");
+	cin >> op2;
+	if (op2.compare("1") == 0)
+	{
+		string ncap;
+		cin >> ncap;
+		if (verificarSiExisteCapa(ncap)==true)
+		{
+			modificarCapaEspecificaDeCuboNegativo(ncap);
+			listFiltros.insertar("NegativoEnCapa"+ncap); //se guarda primero en la lista doble
+			guardarCuboEnListaDoble("NegativoEnCapa" + ncap); //busca el nodo y lo enlaza al cubo
+		}
+		else{
+			printf("\n--> NO EXISTE LA CAPA \n");
+		}
+	}
+	else if (op2.compare("2") == 0)
+	{
+
+	}	
+	else{
+		printf("\n--> OPCION INVALIDA \n");
+	}
 }
 
 void lecturaArchivoCSV()
