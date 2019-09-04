@@ -2,18 +2,20 @@
 #include <iostream>
 #include <sstream>
 #include <cstdlib>
+#include <direct.h>
 
 using namespace std;
 
 void menu();
 void opcionesMenu(int);
 void lecturaArchivoCSV();
-void CrearCuboDisperso();
+void CrearCuboDisperso(string);
 void copiaCuboDisperso();
 void modificarCapaEspecificaDeCuboNegativo(string);
 void modificarTodasLasCapasDeCuboNegativo();
 bool verificarSiExisteCapa(string);
 string obtenerRGBnegativo(string);
+string obtenerRGBgrayscale(string);
 void filtroEspejoEjeX();
 void filtroEspejoEjeY();
 void ReporteGraphvizTodasLasCapas();
@@ -24,6 +26,8 @@ void graphvizEscrituraParaCapa(string, string);
 void graphvizEscrituraParaLinealizacion(string, string);
 void guardarCuboEnListaDoble(string);
 
+void subMenuInsertarImagen();
+
 void subMenuFiltros();
 void subsubMenuFiltrosOp1();
 void subsubMenuFiltrosOp2();
@@ -33,7 +37,14 @@ string rgbG(int num);
 string rgbB(int num);
 string separarRGB_Y_Extraer_Hexa(string);
 
-int config[4]; //guardar la configuracion de la imagen (width ancho)(height alto)(pix width)(pix height)
+int config[4]; //guardar la configuracion de la imagen (width ancho)(height alto)(pix width)(pix height
+int arrDimImage[2] = {0}; //numero de pixeles para html
+int arrDimImageCss[4] = {0,0,0,0};
+string nombreDeImagen = "";
+bool banderaMosaico = false;
+int arrDimImageMosaic[2] = { 0, 0 };
+int arrDimImageMosaicCss[4] = { 0, 0, 0, 0 };
+
 
 ///////////////////////////////////////////////////////// CLASE NODO MATRIZ ///////////////////////////////////////////////////////////////////
 
@@ -1061,6 +1072,8 @@ public:
 	copiaCubo();
 	void insertarElemento(int, string); //numero y nombre de capa
 	void nuevaMatriz(int, string); //enlazar nodo con matriz
+	int obtenerCoordenadaYmayorDeCapa(string);
+	void vaciar();
 	void imprimir();
 };
 
@@ -1104,6 +1117,11 @@ void copiaCubo::imprimir()
 	}
 }
 
+void copiaCubo::vaciar()
+{
+	this->raizCopCubo->siguiente = NULL;
+}
+
 void copiaCubo::insertarElemento(int _indice, string _archivo)
 {
 	NodoCopiaCubo *nuevo = new NodoCopiaCubo(_indice, _archivo);
@@ -1140,6 +1158,36 @@ void copiaCubo::insertarElemento(int _indice, string _archivo)
 		//lo inserto de ultimo
 		temp->siguiente = nuevo;
 	}
+}
+
+int copiaCubo::obtenerCoordenadaYmayorDeCapa(string nomCapa)
+{
+	NodoCopiaCubo *aux = this->raizCopCubo->siguiente;
+	int yyy = 0;
+
+	if (aux != NULL)
+	{
+		while (aux != NULL) //me recorre la lista copia cubo en este sentido -> -> ->
+		{
+			string nomCapExt = aux->nomArchivo; //captura el nombre de la capa
+			string nomCap = nomCapExt.substr(0, nomCapExt.length() - 4); //le quito el .csv	
+
+			if (nomCap.compare(nomCapa)==0)
+			{
+				nodoMatriz *aux2 = aux->apuntaRaizDeMatriz; //se posiciona en la raiz de la matriz
+
+				while (aux2 != NULL) //me recorre la matriz para abajo
+				{
+					yyy = aux2->y;
+					aux2 = aux2->abajo;
+				}
+
+				break;
+			}	
+			aux = aux->siguiente;
+		}
+	}
+	return yyy;
 }
 
 ///////////////////////////////////////////////////////////////////// PILA /////////////////////////////////////////////////////////////////////////
@@ -1216,7 +1264,7 @@ void Pila::imprimir()
 	}
 }
 
-///////////////////////////////////////////////////////////////////// LISTA CIRCULAR /////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////// LISTA CIRCULAR (FILTROS) /////////////////////////////////////////////////////////////////
 
 class nodoFiltro{
 public:
@@ -1240,6 +1288,7 @@ public:
 	nodoFiltro *ultimo;
 	listaDobCircuFiltros();//constructor
 	void insertar(string);
+	string filtrosAplicados();
 	void imprimir();
 	void vaciar();
 };
@@ -1270,6 +1319,29 @@ void listaDobCircuFiltros::insertar(string _filtro)
 		this->primero->anterior = ultimo;
 
 	}
+}
+
+string listaDobCircuFiltros::filtrosAplicados()
+{
+	string cadena = "";
+	int cont = 1;
+
+	if (this->primero != NULL)
+	{
+		nodoFiltro *actual = this->primero;
+		cadena = "\n-->FILTROS YA APLICADOS:\n";
+
+		do
+		{
+			cadena += to_string(cont) + ". " + actual->nomFiltro + "\n";
+			cont++;
+			actual = actual->siguiente;
+		} while (actual != primero);
+	}
+	else{
+		cadena = "\n-->AUN NO HAY FILTROS APLICADOS! \n";
+	}
+	return cadena;
 }
 
 void listaDobCircuFiltros::imprimir()
@@ -1317,9 +1389,7 @@ void listaDobCircuFiltros::imprimir()
 			}
 			actual = actual->siguiente;
 		} while (actual != primero);
-	}	
-
-	
+	}		
 }
 
 void listaDobCircuFiltros::vaciar()
@@ -1421,16 +1491,16 @@ listaDobCircuFiltros listFiltros;
 listaLinealizacion listLinealizacion;
 
 //se crea el cubo, va creando nodo en la la lista archivos y luego creando matriz para cada nodo
-void CrearCuboDisperso()
+void CrearCuboDisperso(string _archivoleer)
 {		
 	int bande = 1; // bandera para que me ayude a insetar
 	int capa = 0;
 	string archivo="";	
-
+	
 	//me lee el archivo principal
 	try{
 		ifstream lectura;
-		lectura.open("archivo.csv", ios::in);
+		lectura.open(_archivoleer, ios::in);
 		int linealec = 0; //me dira en que linea me encuentro
 
 		for (string linea; getline(lectura, linea);)
@@ -1527,6 +1597,185 @@ void copiaCuboDisperso()
 	}
 }
 
+void collage(int xRep, int yRep)
+{
+	NodolistaArchivos *aux = larch.raizArch->siguiente;//
+
+	if (aux != NULL)
+	{
+		while (aux != NULL) //me recorre la listaArchivos en este sentido -> -> ->
+		{
+			//capturo el indice y nombre de archivo
+			int indi = aux->indice;
+			string nom = aux->nomArchivo;
+			copCubo.insertarElemento(indi, nom); //lo agrego a la lista copiarcubo
+
+			nodoMatriz *aux2 = aux->apuntaRaizDeMatriz->abajo; //se posiciona en coordenada (-1,0)
+
+			Matriz nm; //nueva matriz
+
+			//busco indice en la lista copiacubo para que cuando lo encuentre lo enlaze
+			NodoCopiaCubo *auxNodoCopia = copCubo.raizCopCubo;
+
+			if (auxNodoCopia != NULL)
+			{
+				while (auxNodoCopia != NULL) //mientras sea distinto de NULL ejecuta
+				{
+					if (auxNodoCopia->indice == indi) //cuando ya lo encuentra entra..
+					{
+						while (aux2 != NULL) //me recorre la matriz para abajo, aux2 empieza en (-1,0)
+						{
+							nodoMatriz *aux3 = aux2->siguiente; //se posiciona en el siguiente de la cabecera Y
+
+							while (aux3!=NULL)
+							{
+								nm.insertarElemento(aux3->x, aux3->y, aux3->dato); //me inserta el valor de la matriz actual
+
+								int posX = aux3->x;
+								int posY = aux3->y;
+								int tamimageParaX = config[0];
+								int tamimageParaY = config[0];
+
+								//Si es mayor que uno modificara (repeticiones en x)
+								if (xRep>1)
+								{
+									// se crea 
+									for (int i = 0; i < xRep-1; i++)
+									{
+										posX = posX + tamimageParaX;
+										nm.insertarElemento(posX,aux3->y,aux3->dato);
+									}
+								}
+								//Si es mayor que uno modificara (repeticiones en y)
+								if (yRep>1)
+								{
+									for (int i = 0; i < yRep-1; i++)
+									{
+										posY = posY + tamimageParaY;
+										nm.insertarElemento(aux3->x,posY,aux3->dato);										
+										
+										// Por cada repeticion en y, se crean las repeticiones en x en esa fila y
+										if (xRep>1)
+										{
+											int posXx = aux3->x;
+											for (int k = 0; k < xRep - 1; k++)
+											{
+												posXx = posXx + tamimageParaX;
+												nm.insertarElemento(posXx, posY, aux3->dato);
+											}
+										}
+
+									}
+								}
+
+								aux3 = aux3->siguiente;
+							}
+
+							aux2 = aux2->abajo;
+						}						
+
+						//se enlaza mi lista copiacubo con la matriz creada
+						auxNodoCopia->apuntaRaizDeMatriz = nm.raiz; //cada nodo de la lista archivos (aux->apuntaRaizDeMatriz) apunta a la raiz de la matriz creada						
+					}
+					auxNodoCopia = auxNodoCopia->siguiente;
+				}
+			}
+			aux = aux->siguiente; //aux es de listaarchivos, entonces al avanzar me creara una nueva matriz
+		}
+	}
+}
+
+void mosaico()
+{
+	NodolistaArchivos *aux = larch.raizArch->siguiente;//
+
+	int xRep = config[0]; // image width
+	int yRep = config[1]; // image height
+
+	if (aux != NULL)
+	{
+		while (aux != NULL) //me recorre la listaArchivos en este sentido -> -> ->
+		{
+			//capturo el indice y nombre de archivo
+			int indi = aux->indice;
+			string nom = aux->nomArchivo;
+			copCubo.insertarElemento(indi, nom); //lo agrego a la lista copiarcubo
+
+			nodoMatriz *aux2 = aux->apuntaRaizDeMatriz->abajo; //se posiciona en coordenada (-1,0)
+
+			Matriz nm; //nueva matriz
+
+			//busco indice en la lista copiacubo para que cuando lo encuentre lo enlaze
+			NodoCopiaCubo *auxNodoCopia = copCubo.raizCopCubo;
+
+			if (auxNodoCopia != NULL)
+			{
+				while (auxNodoCopia != NULL) //mientras sea distinto de NULL ejecuta
+				{
+					if (auxNodoCopia->indice == indi) //cuando ya lo encuentra entra..
+					{
+						while (aux2 != NULL) //me recorre la matriz para abajo, aux2 empieza en (-1,0)
+						{
+							nodoMatriz *aux3 = aux2->siguiente; //se posiciona en el siguiente de la cabecera Y
+
+							while (aux3 != NULL)
+							{
+								nm.insertarElemento(aux3->x, aux3->y, aux3->dato); //me inserta el valor de la matriz actual
+
+								int posX = aux3->x;
+								int posY = aux3->y;
+								int tamimageParaX = config[0];
+								int tamimageParaY = config[0];
+
+								//Si es mayor que uno modificara (repeticiones en x)
+								if (xRep>1)
+								{
+									// se crea 
+									for (int i = 0; i < xRep - 1; i++)
+									{
+										posX = posX + tamimageParaX;
+										nm.insertarElemento(posX, aux3->y, aux3->dato);
+									}
+								}
+								//Si es mayor que uno modificara (repeticiones en y)
+								if (yRep>1)
+								{
+									for (int i = 0; i < yRep - 1; i++)
+									{
+										posY = posY + tamimageParaY;
+										nm.insertarElemento(aux3->x, posY, aux3->dato);
+
+										// Por cada repeticion en y, se crean las repeticiones en x en esa fila y
+										if (xRep>1)
+										{
+											int posXx = aux3->x;
+											for (int k = 0; k < xRep - 1; k++)
+											{
+												posXx = posXx + tamimageParaX;
+												nm.insertarElemento(posXx, posY, aux3->dato);
+											}
+										}
+
+									}
+								}
+
+								aux3 = aux3->siguiente;
+							}
+
+							aux2 = aux2->abajo;
+						}
+
+						//se enlaza mi lista copiacubo con la matriz creada
+						auxNodoCopia->apuntaRaizDeMatriz = nm.raiz; //cada nodo de la lista archivos (aux->apuntaRaizDeMatriz) apunta a la raiz de la matriz creada						
+					}
+					auxNodoCopia = auxNodoCopia->siguiente;
+				}
+			}
+			aux = aux->siguiente; //aux es de listaarchivos, entonces al avanzar me creara una nueva matriz
+		}
+	}
+}
+
 void modificarCapaEspecificaDeCuboNegativo(string nomCapa)
 {
 	NodoCopiaCubo *aux = copCubo.raizCopCubo->siguiente;
@@ -1560,7 +1809,6 @@ void modificarCapaEspecificaDeCuboNegativo(string nomCapa)
 
 			aux = aux->siguiente;
 		}
-
 	}
 }
 
@@ -1616,6 +1864,72 @@ void modificarTodasLasCapasDeCuboNegativo()
 	}
 }
 
+void modificarCapaEspecificaDeCuboGrayScale(string nomCapa)
+{
+	NodoCopiaCubo *aux = copCubo.raizCopCubo->siguiente;
+	string filas = "";
+
+	if (aux != NULL)
+	{
+		while (aux != NULL) //me recorre la listaArchivos en este sentido -> -> ->
+		{
+			string a = aux->nomArchivo;
+			string b = a.substr(0, a.length() - 4);
+
+			if (b == nomCapa)
+			{
+				nodoMatriz *aux2 = aux->apuntaRaizDeMatriz->abajo; //se posiciona en (-1,0)
+
+				while (aux2 != NULL) //me recorre la matriz para abajo
+				{
+					nodoMatriz *temp = aux2->siguiente;//pos (0,0)
+
+					while (temp != NULL)
+					{
+						string a = obtenerRGBgrayscale(temp->dato);
+						temp->dato = a;
+						temp = temp->siguiente;
+					}
+
+					aux2 = aux2->abajo;
+				}
+			}
+
+			aux = aux->siguiente;
+		}
+	}
+}
+
+void modificarTodasLasCapasDeCuboGrayScale()
+{
+	NodoCopiaCubo *aux = copCubo.raizCopCubo->siguiente;
+
+	if (aux != NULL)
+	{
+		while (aux != NULL) //me recorre la listaArchivos en este sentido -> -> ->
+		{
+			nodoMatriz *aux2 = aux->apuntaRaizDeMatriz->abajo; //se posiciona en (-1,0)
+
+			while (aux2 != NULL) //me recorre la matriz para abajo
+			{
+				nodoMatriz *temp = aux2->siguiente;//pos (0,0)
+
+				while (temp != NULL)
+				{
+					string a = obtenerRGBgrayscale(temp->dato);
+					temp->dato = a;
+					temp = temp->siguiente;
+				}
+
+				aux2 = aux2->abajo;
+			}
+
+			aux = aux->siguiente;
+		}
+
+	}
+}
+
 string obtenerRGBnegativo(string _rgb)
 {
 	string d = _rgb;
@@ -1640,8 +1954,36 @@ string obtenerRGBnegativo(string _rgb)
 	return dev;
 }
 
+string obtenerRGBgrayscale(string _rgb)
+{
+	string d = _rgb;
+	int pos = d.find("-"); //primer guion
+	string e = d.substr(0, pos); //obtiene rgbR
+	string f = d.substr(pos + 1, d.length() - 1);//resto de cadena
+	int pos2 = f.find("-");
+	string g = f.substr(0, pos2);//obtiene rgbG
+	string h = f.substr(pos2 + 1, f.length() - 1);//obtiene rgbB
+
+	//obtengo numeros por separado
+	double rgb1 = atof(e.c_str());
+	double rgb2 = atof(g.c_str());
+	double rgb3 = atof(h.c_str());
+
+	double op1 = 0.3 * rgb1;
+	double op2 = 0.59 * rgb2;
+	double op3 = 0.11 * rgb3;
+	double op4 = op1 + op2 + op3;
+	int op5 = (int)op4;
+
+	string dev = to_string(op5) + "-" + to_string(op5) + "-" + to_string(op5);
+
+	return dev;
+}
+
 void filtroEspejoEjeX()
 {
+	//FORMULA: (TAMIMAGEN - COLUMNAACTUAL) -1
+
 	NodoCopiaCubo *aux = copCubo.raizCopCubo->siguiente;
 	miPila.raizPila->siguiente = NULL; //limpio Pila
 
@@ -1649,27 +1991,44 @@ void filtroEspejoEjeX()
 	{
 		while (aux != NULL) //me recorre la listaArchivos en este sentido -> -> ->
 		{
-			nodoMatriz *aux2 = aux->apuntaRaizDeMatriz->siguiente->abajo; //se posiciona en (0,0)
+			string a = aux->nomArchivo;
+			string b = a.substr(0, a.length() - 4);
+			
+			Matriz nm;
+
+			nodoMatriz *aux2 = aux->apuntaRaizDeMatriz->abajo; //se posiciona en (-1,0)
+			NodoCopiaCubo *auxbuscar = copCubo.raizCopCubo->siguiente;
 
 			while (aux2 != NULL) //me recorre la matriz para abajo
-			{				
-				nodoMatriz *aux3 = aux2; //(primer recorrido) para que empieze en columna 0 hacia -->
-				nodoMatriz *aux4 = aux2; //(segundo recorrido) para que empieze en columna 0 hacia -->
+			{
+				nodoMatriz *aux3 = aux2->siguiente; //(primer recorrido) para que empieze en columna 0 hacia -->
 
 				while (aux3 != NULL) //me recorre cada fila de la matriz en este sentido -> -> ->
 				{
-					miPila.insertar(aux3->dato); //inserto en pila
+					int tamimagen = config[0]; 
+					int columActual = aux3->x;
+					int op1 = tamimagen - columActual;
+					int op2 = op1 - 1;
+					nm.insertarElemento(op2,aux3->y,aux3->dato);
 					aux3 = aux3->siguiente;
-				}
-
-				while (aux4 != NULL) //me recorre cada fila de la matriz en este sentido -> -> ->
-				{
-					string ob = miPila.eliminar(); //elimino y extraigo en pila
-					aux4->dato = ob; //modifico en matriz
-					aux4 = aux4->siguiente;
-				}
+				}				
 
 				aux2 = aux2->abajo;
+			}
+
+			if (auxbuscar != NULL) //BUSCAR Y MODIFICAR CAPA
+			{
+				while (auxbuscar != NULL) //me recorre la listaArchivos en este sentido -> -> ->
+				{
+					string c = auxbuscar->nomArchivo;
+					string d = c.substr(0, c.length() - 4);
+					if (b == d) // cuando encuentra la misma capa...
+					{
+						auxbuscar->apuntaRaizDeMatriz = nm.raiz; //se enlaza la nueva capa modificada donde estaba la otra
+					}
+
+					auxbuscar = auxbuscar->siguiente;
+				}
 			}
 			aux = aux->siguiente;
 		}
@@ -1679,6 +2038,8 @@ void filtroEspejoEjeX()
 
 void filtroEspejoEjeY()
 {
+	//FORMULA: (TAMIMAGEN - FILAACTUAL) -1
+	
 	NodoCopiaCubo *aux = copCubo.raizCopCubo->siguiente;
 	miPila.raizPila->siguiente = NULL; //limpio Pila
 
@@ -1686,27 +2047,43 @@ void filtroEspejoEjeY()
 	{
 		while (aux != NULL) //me recorre la listaArchivos en este sentido -> -> ->
 		{
-			nodoMatriz *aux2 = aux->apuntaRaizDeMatriz->siguiente->abajo; //se posiciona en (0,0)
+			string a = aux->nomArchivo;
+			string b = a.substr(0, a.length() - 4);
 
-			while (aux2 != NULL) //me recorre la matriz para -->
+			Matriz nm;
+
+			nodoMatriz *aux2 = aux->apuntaRaizDeMatriz->abajo; //se posiciona en (-1,0)
+			NodoCopiaCubo *auxbuscar = copCubo.raizCopCubo->siguiente;
+
+			while (aux2 != NULL) //me recorre la matriz para abajo
 			{
-				nodoMatriz *aux3 = aux2; //(primer recorrido) para que empieze en columna 0 hacia bajo
-				nodoMatriz *aux4 = aux2; //(segundo recorrido) para que empieze en columna 0 hacia bajo
+				nodoMatriz *aux3 = aux2->siguiente; //(primer recorrido) para que empieze en columna 0 hacia -->
 
-				while (aux3 != NULL) //me recorre cada columna de la matriz 
+				while (aux3 != NULL) //me recorre cada fila de la matriz en este sentido -> -> ->
 				{
-					miPila.insertar(aux3->dato); //inserto en pila
-					aux3 = aux3->abajo;
+					int tamimagen = config[0];
+					int filaActual = aux3->y;
+					int op1 = tamimagen - filaActual;
+					int op2 = op1 - 1;
+					nm.insertarElemento(aux3->x, op2, aux3->dato);
+					aux3 = aux3->siguiente;
 				}
+				aux2 = aux2->abajo;
+			}
 
-				while (aux4 != NULL) //me recorre cada columna de la matriz 
+			if (auxbuscar != NULL) //BUSCAR Y MODIFICAR CAPA
+			{
+				while (auxbuscar != NULL) //me recorre la listaArchivos en este sentido -> -> ->
 				{
-					string ob = miPila.eliminar(); //elimino y extraigo en pila
-					aux4->dato = ob; //modifico en matriz
-					aux4 = aux4->abajo;
-				}
+					string c = auxbuscar->nomArchivo;
+					string d = c.substr(0, c.length() - 4);
+					if (b == d) // cuando encuentra la misma capa...
+					{
+						auxbuscar->apuntaRaizDeMatriz = nm.raiz; //se enlaza la nueva capa modificada donde estaba la otra
+					}
 
-				aux2 = aux2->siguiente;
+					auxbuscar = auxbuscar->siguiente;
+				}
 			}
 			aux = aux->siguiente;
 		}
@@ -1717,110 +2094,101 @@ void filtroEspejoEjeY()
 void ReporteGraphvizTodasLasCapas()
 {
 	NodoCopiaCubo *aux = copCubo.raizCopCubo->siguiente;
-	string cadena = "";
+	string grafo = "";
 
 	if (aux != NULL)
 	{
 		while (aux != NULL) //me recorre la listaArchivos en este sentido -> -> ->
 		{
-			cadena = "";
+			grafo = "";
 			string nomCapExt = aux->nomArchivo; //captura el nombre de la capa
-			string nomCap = nomCapExt.substr(0, nomCapExt.length() - 4); //le quito el .csv
+			string nomCap = nomCapExt.substr(0, nomCapExt.length() - 4); //le quito el .csv			
 
-			//nodos que me serviran para los pasos correspondientes
-			nodoMatriz *aux2 = aux->apuntaRaizDeMatriz; //se posiciona en la raiz de la matriz (-1,-1)
-			nodoMatriz *aux3 = aux->apuntaRaizDeMatriz;
-			nodoMatriz *aux4 = aux->apuntaRaizDeMatriz->siguiente; //se posiciona en (-1,0)
-			nodoMatriz *aux5 = aux->apuntaRaizDeMatriz->siguiente;
-			nodoMatriz *aux6 = aux->apuntaRaizDeMatriz;
-			nodoMatriz *aux7 = aux->apuntaRaizDeMatriz->siguiente->abajo; //me posiciono en (0,0)
+			int filas = copCubo.obtenerCoordenadaYmayorDeCapa(nomCap) + 1; //numero de filas, +1 por la cabecera
 
-			//-->PASO 1: recororo toda mi cabecera Y para crear los label de la cabecera Y
-			while (aux2 != NULL) 
+			//para cabecera Y
+			nodoMatriz *auxCabY = aux->apuntaRaizDeMatriz;
+			nodoMatriz *auxCabY2 = aux->apuntaRaizDeMatriz;
+
+			while (auxCabY != NULL)
 			{
-				cadena += "\"(" + to_string(aux2->x) + "," + to_string(aux2->y) + ")" + "\"" + "[ label = " + "\"" + "(" + to_string(aux2->x) + "," + to_string(aux2->y) + ") " + aux2->dato + "\"" + ", width = 1.5, style = filled, fillcolor = firebrick1, group =" + to_string(aux2->x) + "] \n";
-				aux2 = aux2->abajo;
-			}
-
-			//-->PASO 2: recorro cabecera Y para hacer las relaciones de los nodos (anterior se crean los label) aqui se hacen las relaciones (solo entre cabecera Y)
-			while (aux3!=NULL) 
-			{
-				if (aux3->abajo!=NULL)
+				int op = filas - auxCabY->y;
+				if (auxCabY->y == -1)
 				{
-					cadena += "\"(" + to_string(aux3->x) + "," + to_string(aux3->y) + ")" + "\"" + "->" + "\"(" + to_string(aux3->abajo->x) + "," + to_string(aux3->abajo->y) + ")" + "\""+"\n";
-					cadena += "\"(" + to_string(aux3->abajo->x) + "," + to_string(aux3->abajo->y) + ")" + "\"" + "->" + "\"(" + to_string(aux3->x) + "," + to_string(aux3->y) + ")" + "\""+"\n";
-				}
-				aux3 = aux3->abajo;
-			}
-
-			//-->PASO 3: recororo toda mi cabecera X para crear los label de la cabecera X
-			while (aux4 != NULL) 
-			{
-				cadena += "\"(" + to_string(aux4->x) + "," + to_string(aux4->y) + ")" + "\"" + "[ label = " + "\"" + "(" + to_string(aux4->x) + "," + to_string(aux4->y) + ") " + aux4->dato + "\"" + ", width = 1.5, style = filled, fillcolor = firebrick1, group =" + to_string(aux4->x) + "] \n";
-				aux4 = aux4->siguiente;
-			}
-
-			//-->PASO 4: recorro cabecera X para hacer las relaciones de los nodos (anterior se crean los label) aqui se hacen las relaciones (solo entre cabecera X)
-			while (aux5 != NULL) 
-			{				
-				cadena += "\"(" + to_string(aux5->x) + "," + to_string(aux5->y) + ")" + "\"" + "->" + "\"(" + to_string(aux5->anterior->x) + "," + to_string(aux5->anterior->y) + ")" + "\"" + "\n";
-				cadena += "\"(" + to_string(aux5->anterior->x) + "," + to_string(aux5->anterior->y) + ")" + "\"" + "->" + "\"(" + to_string(aux5->x) + "," + to_string(aux5->y) + ")" + "\"" + "\n";
-				
-				aux5 = aux5->siguiente;
-			}
-
-			//-->PASO 5: aqui hago que mis filas se elineen segun la columna que le corresponde (group)
-			cadena += "{rank=same;";
-
-			while (aux6 != NULL) 
-			{				
-				cadena += "\"(" + to_string(aux6->x) + "," + to_string(aux6->y) + ")" + "\"" + ";";
-				
-				aux6 = aux6->siguiente;
-			}
-			cadena += "} \n";
-
-			//-->PASO 6: recorro mi matriz desde (0,0) hacia abajo
-			while (aux7!=NULL)
-			{
-				//(PASO 7,8,9,10 se ejecuta cada vez que aux7 da una vuelta)
-				//-->PASO 7
-				nodoMatriz *aux8 = aux7;
-				nodoMatriz *aux9 = aux7;
-				nodoMatriz *aux10 = aux7->anterior; // aux7->anterior para que me alinee la fila con la cabecera en Y (para que tome en cuenta la cabecera Y )
-
-				//-->PASO 8: recororo toda mi fila en X para crear los label
-				while (aux8!=NULL) 
-				{
-					cadena += "\"(" + to_string(aux8->x) + "," + to_string(aux8->y) + ")" + "\"" + "[ label = " + "\"" + "(" + to_string(aux8->x) + "," + to_string(aux8->y) + ") " + aux8->dato + "\"" + ", width = 1.5, style = filled, group =" + to_string(aux8->x) + "] \n";
-					
-					aux8 = aux8->siguiente;
-				}
-				//-->PASO 9: ya creados los label anteriormente hago las relaciones entre nodos
-				while (aux9!=NULL)
-				{
-					cadena += "\"(" + to_string(aux9->x) + "," + to_string(aux9->y) + ")" + "\"" + "->" + "\"(" + to_string(aux9->anterior->x) + "," + to_string(aux9->anterior->y) + ")" + "\"" + "\n";
-					cadena += "\"(" + to_string(aux9->anterior->x) + "," + to_string(aux9->anterior->y) + ")" + "\"" + "->" + "\"(" + to_string(aux9->x) + "," + to_string(aux9->y) + ")" + "\"" + "\n";
-					cadena += "\"(" + to_string(aux9->arriba->x) + "," + to_string(aux9->arriba->y) + ")" + "\"" + "->" + "\"(" + to_string(aux9->x) + "," + to_string(aux9->y) + ")" + "\"" + "\n";
-					cadena += "\"(" + to_string(aux9->x) + "," + to_string(aux9->y) + ")" + "\"" + "->" + "\"(" + to_string(aux9->arriba->x) + "," + to_string(aux9->arriba->y) + ")" + "\"" + "\n";
-					
-					aux9 = aux9->siguiente;
+					op = filas+1;
 				}
 
-				//-->PASO 10: aqui hago que mis filas se elineen segun la columna que le corresponde (group)
-				cadena += "{rank=same;";
-
-				while (aux10 != NULL) // recorro X para hacer la linealizacion de nodos
+				if (auxCabY->x == -1 && auxCabY->y == -1)
 				{
-					cadena += "\"(" + to_string(aux10->x) + "," + to_string(aux10->y) + ")" + "\"" + ";";					
-					aux10 = aux10->siguiente;
+					grafo += "\"(" + to_string(auxCabY->x) + "," + to_string(auxCabY->y) + ")" + "\"" + "[label=\"{<data> RAIZ |<next>}\" pos=\"" + to_string(auxCabY->x) + "," + to_string(op) + "!\"];\n";
 				}
-				cadena += "} \n";
-
-				aux7 = aux7->abajo;
+				else{
+					grafo += "\"(" + to_string(auxCabY->x) + "," + to_string(auxCabY->y) + ")" + "\"" + "[label=\"{<data>" + auxCabY->dato + "|<next>}\" pos=\"" + to_string(auxCabY->x) + "," + to_string(op) + "!\"];\n";
+				}
+				auxCabY = auxCabY->abajo;
 			}
 
-			graphvizEscrituraParaCapa(nomCap, cadena);
+			//relacion entre cabecera Y
+			while (auxCabY2 != NULL)
+			{
+				if (auxCabY2->abajo != NULL)
+				{
+					grafo += "\"(" + to_string(auxCabY2->x) + "," + to_string(auxCabY2->y) + ")" + "\"" + "->" + "\"(" + to_string(auxCabY2->abajo->x) + "," + to_string(auxCabY2->abajo->y) + ")" + "\" [dir=both]; \n";
+				}
+				auxCabY2 = auxCabY2->abajo;
+			}
+
+			//para cabecera X
+			nodoMatriz *auxCabX = aux->apuntaRaizDeMatriz->siguiente;
+			nodoMatriz *auxCabX2 = aux->apuntaRaizDeMatriz->siguiente;
+
+			while (auxCabX != NULL)
+			{
+				int op = filas - auxCabX->y;
+				if (auxCabX->y == -1)
+				{
+					op = filas+1;
+				}
+				grafo += "\"(" + to_string(auxCabX->x) + "," + to_string(auxCabX->y) + ")" + "\"" + "[label=\"{<data>" + "(" + to_string(auxCabX->x) + "," + to_string(auxCabX->y) + ")" + "|<next>}\" pos=\"" + to_string(auxCabX->x) + "," + to_string(op) + "!\"];\n";
+				auxCabX = auxCabX->siguiente;
+			}
+
+			//relacion entre cabecera X
+			while (auxCabX2 != NULL)
+			{
+				grafo += "\"(" + to_string(auxCabX2->anterior->x) + "," + to_string(auxCabX2->anterior->y) + ")" + "\"" + "->" + "\"(" + to_string(auxCabX2->x) + "," + to_string(auxCabX2->y) + ")" + "\" [dir=both]; \n";
+				auxCabX2 = auxCabX2->siguiente;
+			}
+
+			//Para nodos
+			nodoMatriz *auxNod = aux->apuntaRaizDeMatriz->abajo;
+
+			while (auxNod != NULL)
+			{
+				//creando nodos
+				nodoMatriz *aux2 = auxNod->siguiente;
+				nodoMatriz *aux3 = auxNod->siguiente;
+
+				while (aux2 != NULL)
+				{
+					int op = filas - aux2->y;
+					grafo += "\"(" + to_string(aux2->x) + "," + to_string(aux2->y) + ")" + "\"" + "[label=\"{<data>" + aux2->dato + "|<next>}\" pos=\"" + to_string(aux2->x) + "," + to_string(op) + "!\"];\n";
+					aux2 = aux2->siguiente;
+				}
+
+				//haciendo relacion entre nodos
+				while (aux3 != NULL)
+				{
+					grafo += "\"(" + to_string(aux3->anterior->x) + "," + to_string(aux3->anterior->y) + ")" + "\"" + "->" + "\"(" + to_string(aux3->x) + "," + to_string(aux3->y) + ")" + "\" [dir=both]; \n";
+					grafo += "\"(" + to_string(aux3->x) + "," + to_string(aux3->y) + ")" + "\"" + "->" + "\"(" + to_string(aux3->arriba->x) + "," + to_string(aux3->arriba->y) + ")" + "\" [dir=both]; \n";
+
+					aux3 = aux3->siguiente;
+				}
+
+				auxNod = auxNod->abajo;
+			}
+
+			graphvizEscrituraParaCapa(nomCap, grafo);
 			aux = aux->siguiente;
 		}
 
@@ -1943,23 +2311,30 @@ void guardarConfig(string _archivo)
 
 void graphvizEscrituraParaCapa(string _nomCapa, string _texto)
 {
+	//creando carpeta con nombre de imagen (Si ya existe directorio no lo crea de nuevo)
+	string rut = "Exports/" + nombreDeImagen;
+	char* rutt = (char *)rut.c_str();
+	int a = _mkdir(rutt);
+
 	ofstream archivo;
-	archivo.open(_nomCapa+".dot", ios::out);
+	archivo.open("Exports/"+nombreDeImagen+"/"+_nomCapa+".dot", ios::out);
 
 	if (archivo.fail()){
 		printf("error");
 	}
 
 	string est = _texto;
-	archivo << "digraph G { \n";
-	archivo << "node [shape=box]; \n";
-	archivo << "graph [splines=ortho, nodesep=0.5]; \n";
+	archivo << "digraph g \n";
+	archivo << "{\nnode[shape=record];\n";
+	archivo << "graph[pencolor=transparent];\n";
+	archivo << "rankdir=LR;\n";
+	archivo << "node [style=filled];\n";
 	archivo << est;
 	archivo << "\n }";
 	archivo.close();
 
 	char* charr;
-	string dott = "dot -Tpng " + _nomCapa + ".dot -o " + _nomCapa + ".png";
+	string dott = "neato -Tjpg Exports/" + nombreDeImagen + "/" + _nomCapa + ".dot -o Exports/" + nombreDeImagen + "/" + _nomCapa + ".jpg";
 	charr = (char *)dott.c_str();
 	system(charr);
 	//system("nohup display ruta_y_nombre_de_imagen_generada.png &");
@@ -2016,6 +2391,362 @@ void guardarCuboEnListaDoble(string _filtro)
 
 void generarHTML()
 {
+	int dim = arrDimImage[0];
+	if (banderaMosaico==true) // si es mosaico
+	{
+		string cadena = "";
+		cadena += "<!DOCTYPE html> \n";
+		cadena += "<head> \n";
+		cadena += "<link rel = \"stylesheet\" href = \"si.css\"> \n";
+		cadena += "</head> \n";
+		cadena += "<body> \n";
+		cadena += "<div class = \"canvas\"> \n";
+
+		int image_width = arrDimImageMosaic[0];
+		int image_height = arrDimImageMosaic[1];
+
+		int op = image_width * image_height; //tamanio de cada imagen
+		int op2 = op*image_width; // (cada cuadro de imagen) por (el ancho de imagen)
+		int op3 = op2*image_height; // (por el alto de imagen)
+
+		for (int i = 0; i < op3 ; i++)
+		{
+			cadena += "<div class=\"pixel\"></div> \n";
+		}
+
+		cadena += "</div> \n";
+		cadena += "</body> \n";
+		cadena += "</html> \n";
+
+		ofstream archivo;
+		archivo.open("prueba.html", ios::out);
+
+		if (archivo.fail()){
+			printf("error");
+		}
+
+		archivo << cadena;
+
+		archivo.close();
+	}
+	else if (dim!=0) //si es diferente a 0 es porque es collage 
+	{
+		string cadena = "";
+		cadena += "<!DOCTYPE html> \n";
+		cadena += "<head> \n";
+		cadena += "<link rel = \"stylesheet\" href = \"si.css\"> \n";
+		cadena += "</head> \n";
+		cadena += "<body> \n";
+		cadena += "<div class = \"canvas\"> \n";
+
+		int image_width = config[0];
+		int image_height = config[1];
+		int pixel_width = config[2];
+		int pixel_height = config[3];
+
+		int op = image_width * image_height;
+
+		for (int i = 0; i < dim; i++)
+		{
+			cadena += "<div class=\"pixel\"></div> \n";
+		}
+
+		cadena += "</div> \n";
+		cadena += "</body> \n";
+		cadena += "</html> \n";
+
+		ofstream archivo;
+		archivo.open("prueba.html", ios::out);
+
+		if (archivo.fail()){
+			printf("error");
+		}
+
+		archivo << cadena;
+
+		archivo.close();
+	}
+	else{
+		string cadena = "";
+		cadena += "<!DOCTYPE html> \n";
+		cadena += "<head> \n";
+		cadena += "<link rel = \"stylesheet\" href = \"si.css\"> \n";
+		cadena += "</head> \n";
+		cadena += "<body> \n";
+		cadena += "<div class = \"canvas\"> \n";
+
+		int image_width = config[0];
+		int image_height = config[1];
+		int pixel_width = config[2];
+		int pixel_height = config[3];
+
+		int op = image_width * image_height;
+
+		for (int i = 0; i < op; i++)
+		{
+			cadena += "<div class=\"pixel\"></div> \n";
+		}
+
+		cadena += "</div> \n";
+		cadena += "</body> \n";
+		cadena += "</html> \n";
+
+		ofstream archivo;
+		archivo.open("prueba.html", ios::out);
+
+		if (archivo.fail()){
+			printf("error");
+		}
+
+		archivo << cadena;
+
+		archivo.close();
+	}
+	
+}
+
+void generarCSS()
+{
+	int aa = arrDimImage[0]; //para saber si es collage (me modifica los dos arreglos a la vez si es collage, arrDimImage y arrDimImageCss)
+
+	if (banderaMosaico==true)
+	{
+		string cadena = "";
+		cadena += "body{ \n";
+		cadena += "height: 100vh; \n";
+		cadena += "display: flex; \n";
+		cadena += "justify - content: center; \n";
+		cadena += "align - items: center; } \n";
+
+		cadena += ".canvas { \n";
+		cadena += "background: #bed10f; \n";
+
+		int image_width = arrDimImageMosaicCss[0];
+		int image_height = arrDimImageMosaicCss[1];
+		int pixel_width = arrDimImageMosaicCss[2];
+		int pixel_height = arrDimImageMosaicCss[3];
+		int op = image_width * pixel_width;
+		int op2 = image_height*pixel_height;
+
+		cadena += "width: " + to_string(480) + "px; \n";
+		cadena += "height: " + to_string(480) + "px; \n";
+		cadena += " } \n";
+		cadena += ".pixel{ \n";
+		cadena += "width: " + to_string(pixel_width) + "px; \n";
+		cadena += "height: " + to_string(pixel_height) + "px; \n";
+		cadena += "float:left; \n";
+		cadena += "} \n";
+
+		NodoCopiaCubo *aux = copCubo.raizCopCubo->siguiente;
+
+		if (aux != NULL)
+		{
+			while (aux != NULL) //me recorre la lista en este sentido -> -> ->
+			{
+				nodoMatriz *aux2 = aux->apuntaRaizDeMatriz->abajo; //(-1,0)
+
+				while (aux2 != NULL) //me recorre la matriz para abajo
+				{
+					nodoMatriz *aux3 = aux2->siguiente; //
+
+					while (aux3 != NULL) //me recorre cada fila de la matriz en este sentido -> -> ->
+					{
+						//FORMULA: (FILAACTUAL*TAMANIOPIXEL)+(COLUMNAACTUAL+1)
+						int filaActual = 0;
+						int tamPixel = 0;
+						int columnaActual = 0;
+						int columnaActualn = 0;
+						int op1 = 0;
+						int op2 = 0;
+						filaActual = aux3->y; //FILA ACTUAL
+						tamPixel = arrDimImageCss[0]; //TAMANIOImage
+						columnaActual = aux3->x;
+						columnaActualn = columnaActual + 1;//COLUMNAACTUAL +1
+						op1 = tamPixel*filaActual; // (FILAACTUAL*TAMANIImage)
+						op2 = op1 + columnaActualn; // (FILAACTUAL*TAMANIOPIXEL)+(COLUMNAACTUAL+1)
+						string hexad = separarRGB_Y_Extraer_Hexa(aux3->dato);
+						cadena += ".pixel:nth-child(" + to_string(op2) + "){ \n";
+						cadena += "background: " + hexad + "; \n";
+						cadena += "} \n\n";
+
+						aux3 = aux3->siguiente;
+					}
+
+					aux2 = aux2->abajo;
+				}
+				aux = aux->siguiente;
+			}
+		}
+
+		ofstream archivo;
+		archivo.open("si.css", ios::out);
+
+		if (archivo.fail()){
+			printf("error");
+		}
+
+		archivo << cadena;
+
+		archivo.close();
+	}
+	else if (aa!=0) //si es distinto a 0 es collage
+	{
+		string cadena = "";
+		cadena += "body{ \n";
+		cadena += "height: 100vh; \n";
+		cadena += "display: flex; \n";
+		cadena += "justify - content: center; \n";
+		cadena += "align - items: center; } \n";
+
+		cadena += ".canvas { \n";
+		cadena += "background: #bed10f; \n";
+		
+		int image_width = arrDimImageCss[0];
+		int image_height = arrDimImageCss[1];
+		int pixel_width = arrDimImageCss[2];
+		int pixel_height = arrDimImageCss[3];
+		int op = image_width * pixel_width;
+		int op2 = image_height*pixel_height;
+
+		cadena += "width: " + to_string(op) + "px; \n";
+		cadena += "height: " + to_string(op2) + "px; \n";
+		cadena += " } \n";
+		cadena += ".pixel{ \n";
+		cadena += "width: " + to_string(pixel_width) + "px; \n";
+		cadena += "height: " + to_string(pixel_height) + "px; \n";
+		cadena += "float:left; \n";
+		cadena += "} \n";
+
+		NodoCopiaCubo *aux = copCubo.raizCopCubo->siguiente;
+
+		if (aux != NULL)
+		{
+			while (aux != NULL) //me recorre la lista en este sentido -> -> ->
+			{
+				nodoMatriz *aux2 = aux->apuntaRaizDeMatriz->abajo; //(-1,0)
+
+				while (aux2 != NULL) //me recorre la matriz para abajo
+				{
+					nodoMatriz *aux3 = aux2->siguiente; //
+
+					while (aux3 != NULL) //me recorre cada fila de la matriz en este sentido -> -> ->
+					{
+						//FORMULA: (FILAACTUAL*TAMANIOPIXEL)+(COLUMNAACTUAL+1)
+						int filaActual = 0;
+						int tamPixel = 0;
+						int columnaActual = 0;
+						int columnaActualn = 0;
+						int op1 = 0;
+						int op2 = 0;
+						filaActual = aux3->y; //FILA ACTUAL
+						tamPixel = arrDimImageCss[0]; //TAMANIOPIXEL
+						columnaActual = aux3->x;
+						columnaActualn = columnaActual + 1;//COLUMNAACTUAL +1
+						op1 = tamPixel*filaActual; // (FILAACTUAL*TAMANIOPIXEL)
+						op2 = op1 + columnaActualn; // (FILAACTUAL*TAMANIOPIXEL)+(COLUMNAACTUAL+1)
+						string hexad = separarRGB_Y_Extraer_Hexa(aux3->dato);
+						cadena += ".pixel:nth-child(" + to_string(op2) + "){ \n";
+						cadena += "background: " + hexad + "; \n";
+						cadena += "} \n\n";
+
+						aux3 = aux3->siguiente;
+					}
+
+					aux2 = aux2->abajo;
+				}
+				aux = aux->siguiente;
+			}
+		}
+
+		ofstream archivo;
+		archivo.open("si.css", ios::out);
+
+		if (archivo.fail()){
+			printf("error");
+		}
+
+		archivo << cadena;
+
+		archivo.close();
+	}
+	else{
+		string cadena = "";
+		cadena += ".canvas { \n";
+		cadena += "background: #bed10f; \n";
+
+		int image_width = config[0];
+		int image_height = config[1];
+		int pixel_width = config[2];
+		int pixel_height = config[3];
+		int op = image_width * pixel_width;
+		int op2 = image_height*pixel_height;
+
+		cadena += "width: " + to_string(op) + "px; \n";
+		cadena += "height: " + to_string(op2) + "px; \n";
+		cadena += " } \n";
+		cadena += ".pixel{ \n";
+		cadena += "width: " + to_string(pixel_width) + "px; \n";
+		cadena += "height: " + to_string(pixel_height) + "px; \n";
+		cadena += "float:left; \n";
+		cadena += "} \n";
+
+		NodoCopiaCubo *aux = copCubo.raizCopCubo->siguiente;
+
+		if (aux != NULL)
+		{
+			while (aux != NULL) //me recorre la lista en este sentido -> -> ->
+			{
+				nodoMatriz *aux2 = aux->apuntaRaizDeMatriz->abajo; //(-1,0)
+
+				while (aux2 != NULL) //me recorre la matriz para abajo
+				{
+					nodoMatriz *aux3 = aux2->siguiente; //
+
+					while (aux3 != NULL) //me recorre cada fila de la matriz en este sentido -> -> ->
+					{
+						//FORMULA: (FILAACTUAL*TAMANIOPIXEL)+(COLUMNAACTUAL+1)
+						int filaActual = 0;
+						int tamPixel = 0;
+						int columnaActual = 0;
+						int columnaActualn = 0;
+						int op1 = 0;
+						int op2 = 0;
+						filaActual = aux3->y; //FILA ACTUAL
+						tamPixel = config[0]; //TAMANIOPIXEL
+						columnaActual = aux3->x;
+						columnaActualn = columnaActual + 1;//COLUMNAACTUAL +1
+						op1 = tamPixel*filaActual; // (FILAACTUAL*TAMANIOPIXEL)
+						op2 = op1 + columnaActualn; // (FILAACTUAL*TAMANIOPIXEL)+(COLUMNAACTUAL+1)
+						string hexad = separarRGB_Y_Extraer_Hexa(aux3->dato);
+						cadena += ".pixel:nth-child(" + to_string(op2) + "){ \n";
+						cadena += "background: " + hexad + "; \n";
+						cadena += "} \n\n";
+
+						aux3 = aux3->siguiente;
+					}
+
+					aux2 = aux2->abajo;
+				}
+				aux = aux->siguiente;
+			}
+		}
+
+		ofstream archivo;
+		archivo.open("si.css", ios::out);
+
+		if (archivo.fail()){
+			printf("error");
+		}
+
+		archivo << cadena;
+
+		archivo.close();
+	}	
+
+}
+
+void generarHTMLCOLLAGE(int _x, int _y)
+{
 	string cadena = "";
 	cadena += "<!DOCTYPE html> \n";
 	cadena += "<head> \n";
@@ -2030,8 +2761,10 @@ void generarHTML()
 	int pixel_height = config[3];
 
 	int op = image_width * image_height;
+	int op2 = op*_x;
+	int op3 = op2* _y;
 
-	for (int i = 0; i < op; i++)
+	for (int i = 0; i < op3; i++)
 	{
 		cadena += "<div class=\"pixel\"></div> \n";
 	}
@@ -2052,27 +2785,38 @@ void generarHTML()
 	archivo.close();
 }
 
-void generarCSS()
+void generarCSSCOLLAGE(int _x, int _y)
 {
 	string cadena = "";
 	cadena += ".canvas { \n";
 	cadena += "background: #bed10f; \n";
 
+	//configuracion de imagen
 	int image_width = config[0];
 	int image_height = config[1];
 	int pixel_width = config[2];
 	int pixel_height = config[3];
-	int op = image_width * pixel_width;
 
-	cadena += "width: " + to_string(op) + "px; \n";
-	cadena += "height: " + to_string(op) + "px; \n";
+	//dimensiones de imagen para css
+	int op_ = image_width * pixel_width;
+	int op2_ = op_*_x;
+	int op3_ = op_*_y;
+	
+	//numero de pixeles
+	int op4 = image_width*image_height;//ej. 16x16
+	int op5 = op4*_x; //16x16x2
+	int op6 = op5*_y; //16x16x2x3
+	int op7 = op6 / _y; //(16x16x2x3)/3
+
+	cadena += "width: " + to_string(op2_) + "px; \n";
+	cadena += "height: " + to_string(op3_) + "px; \n";
 	cadena += " } \n";
 	cadena += ".pixel{ \n";
 	cadena += "width: " + to_string(pixel_width) + "px; \n";
 	cadena += "height: " + to_string(pixel_height) + "px; \n";
 	cadena += "float:left; \n";
 	cadena += "} \n";
-	
+
 	NodoCopiaCubo *aux = copCubo.raizCopCubo->siguiente;
 
 	if (aux != NULL)
@@ -2087,23 +2831,70 @@ void generarCSS()
 
 				while (aux3 != NULL) //me recorre cada fila de la matriz en este sentido -> -> ->
 				{
-					//FORMULA: (FILAACTUAL*TAMANIOPIXEL)+(COLUMNAACTUAL+1)
-					int filaActual = 0;
-					int tamPixel = 0;
-					int columnaActual = 0;
-					int columnaActualn = 0;
-					int op1 = 0;
-					int op2 = 0;
-					filaActual = aux3->y; //FILA ACTUAL
-					tamPixel = config[0]; //TAMANIOPIXEL
-					columnaActual = aux3->x;
-					columnaActualn = columnaActual + 1;//COLUMNAACTUAL +1
-					op1 = tamPixel*filaActual; // (FILAACTUAL*TAMANIOPIXEL)
-					op2 = op1 + columnaActualn; // (FILAACTUAL*TAMANIOPIXEL)+(COLUMNAACTUAL+1)
+					//FORMULA1: (FILAACTUAL*TAMANIOPIXEL)+(COLUMNAACTUAL+1)
+					int filaActual = aux3->y; //FILA ACTUAL
+					int tamimage = config[0]; //TAMANIMAGE
+					int columnaActual = aux3->x;
+					int columnaActualn = columnaActual + 1;//COLUMNAACTUAL +1
+					int op1 = tamimage*_x*filaActual; // (FILAACTUAL*TAMANIOIMAGE) EJ. CON X=3 Y IMAGE=16, EL ANCHO SERA 16*3=48
+					int op2 = op1 + columnaActualn; // (FILAACTUAL*TAMANIOIMAGE)+(COLUMNAACTUAL+1)
+
 					string hexad = separarRGB_Y_Extraer_Hexa(aux3->dato);
 					cadena += ".pixel:nth-child(" + to_string(op2) + "){ \n";
 					cadena += "background: " + hexad + "; \n";
 					cadena += "} \n\n";
+
+					//PARTE 1: SI X>1 ME CREA LAS REPETICIONES EN X
+					for (int i = 0; i < _x-1; i++)
+					{
+						op2 = op2 + tamimage;
+						string hexad = separarRGB_Y_Extraer_Hexa(aux3->dato);
+						cadena += ".pixel:nth-child(" + to_string(op2) + "){ \n";
+						cadena += "background: " + hexad + "; \n";
+						cadena += "} \n\n";
+					}	
+
+					//PARTE 2: SI Y TIENE UN TAMANIO DE 2, ME CREA LAS REPETICIONES EN Y
+					//FORMULA= TAMIMAGEN*FILAACTUAL*X + OP7 + 1 + COLUMNAACUTAL
+					int opaux = columnaActual;
+					for (int i = 0; i < _x; i++)
+					{
+						int form1 = tamimage*filaActual;
+						int form2 = form1*_x;
+						int form3 = form2 + op7;
+						int form4 = form3 + 1;
+						int form5 = form4 + opaux;
+						string hexad = separarRGB_Y_Extraer_Hexa(aux3->dato);
+						cadena += ".pixel:nth-child(" + to_string(form5) + "){ \n";
+						cadena += "background: " + hexad + "; \n";
+						cadena += "} \n\n";
+						opaux = opaux + tamimage;
+					}
+
+					//PARTE 2: PARA CUANDO Y>2
+					//FORMULA= TAMIMAGEN*FILAACTUAL*X + OP7 + 1 + COLUMNAACUTAL
+					if (_y>2)
+					{
+						int aa = op7 + op7; //empezara a crear repeticiones a partir de la tercera fila
+						while (aa<op6)
+						{							
+							int opaux = columnaActual;//columna actual
+							for (int i = 0; i < _x; i++)
+							{
+								int form1 = tamimage*filaActual;
+								int form2 = form1*_x;
+								int form3 = form2 + aa;
+								int form4 = form3 + 1;
+								int form5 = form4 + opaux;
+								string hexad = separarRGB_Y_Extraer_Hexa(aux3->dato);
+								cadena += ".pixel:nth-child(" + to_string(form5) + "){ \n";
+								cadena += "background: " + hexad + "; \n";
+								cadena += "} \n\n";
+								opaux = opaux + tamimage;
+							}
+							aa = aa + op7;
+						}
+					}						
 
 					aux3 = aux3->siguiente;
 				}
@@ -2124,6 +2915,7 @@ void generarCSS()
 	archivo << cadena;
 
 	archivo.close();
+
 
 }
 
@@ -2390,23 +3182,20 @@ void menu()
 }
 
 void opcionesMenu(int _opcion)
-{
+{	
 	switch (_opcion)
 	{
 	case 1:
-		CrearCuboDisperso();
-		//larch.imprimir();
-		copiaCuboDisperso();
-		copCubo.imprimir();
-		filtroEspejoEjeX();
-		copCubo.imprimir();
+		subMenuInsertarImagen();
 		break;
 	case 2:
+		//copCubo.raizCopCubo->siguiente=NULL;
 		//listFiltros.imprimir();
 		//larch.raizArch->siguiente = NULL; //limpiar lista
 		break;
 	case 3:
 		subMenuFiltros();
+		arrDimImage[0] = 0; //para que no entre en collage en exportar (por si se genera una imagen que no sea collage)
 		break;
 	case 4:
 		break;
@@ -2414,8 +3203,8 @@ void opcionesMenu(int _opcion)
 		generarHTML();
 		generarCSS();
 		break;
-	case 6:
-		//ReporteGraphvizTodasLasCapas();
+	case 6:		
+		ReporteGraphvizTodasLasCapas();
 		//ReporteGraphvizLinealizacionPorFilaTodasCapas();
 		//ReporteGraphvizLinealizacionPorColumnaTodasCapas();
 		break;
@@ -2430,18 +3219,31 @@ int main()
 {
 	menu();
 
-	system("pause");
 	return 0;
+}
+
+///////////////////////////////////////////////////////////// SUB MENU INSERTAR IMAGEN ///////////////////////////////////////////////////////////////////////
+
+void subMenuInsertarImagen()
+{
+	string a;
+	printf(" \n--> INGRESE NOMBRE DE ARCHIVO PRINCIPAL (SIN EXTENSION)\n");
+	cin >> a;
+	nombreDeImagen = a;
+	a += ".csv";
+	CrearCuboDisperso(a);
+	copiaCuboDisperso();
 }
 
 /////////////////////////////////////////////////////////////// SUB MENU FILTROS //////////////////////////////////////////////////////////////////////////////
 
 void subMenuFiltros()
 {
+	cout << listFiltros.filtrosAplicados() << endl;
 	string op1;
 	printf(" \n -------FILTROS------ \n");
-	printf("1. Filtro a Imagen Completa \n");
-	printf("2. Filtro a Una Capa en Especifico \n");
+	printf("1. FILTRO A IMAGEN COMPLETA \n");
+	printf("2. FILTRO A UNA CAPA EN ESPECIFICO \n");
 	printf("\n ELIJA UNA OPCION: \n");
 	cin >> op1;
 	if (op1.compare("1")==0)
@@ -2465,29 +3267,91 @@ void subsubMenuFiltrosOp1() // Imagen completa
 	printf("3. X-Mirror (Espejo en eje X) \n");
 	printf("4. Y-Mirror (Espejo en eje Y) \n");
 	printf("5. Double Mirror (Espejo En Ambos Ejes) \n");
+	printf("6. Collage \n");
+	printf("7. Mosaic (Mosaico) \n");
 	printf("\n--> ELIJA UNA OPCION: \n");
 	cin >> op2;
 	if (op2.compare("1") == 0)
 	{
 		modificarTodasLasCapasDeCuboNegativo();
-		listFiltros.insertar("NegativoEnTodasCapas"); //se guarda primero en la lista doble
-		guardarCuboEnListaDoble("NegativoEnTodasCapas"); //busca el nodo y lo enlaza al cubo
+		listFiltros.insertar("Negativo_En_Todas_Las_Capas"); //se guarda primero en la lista doble
+		guardarCuboEnListaDoble("Negativo_En_Todas_Las_Capas"); //busca el nodo y lo enlaza al cubo
 	}
 	else if (op2.compare("2") == 0)
 	{
-		
+		modificarTodasLasCapasDeCuboGrayScale();
+		listFiltros.insertar("GrayScale_En_Todas_Las_Capas"); //se guarda primero en la lista doble
+		guardarCuboEnListaDoble("GrayScale_En_Todas_Las_Capas"); //busca el nodo y lo enlaza al cubo
 	}
 	else if (op2.compare("3") == 0)
 	{
-
+		filtroEspejoEjeX();
+		listFiltros.insertar("Espejo_En_Eje_X"); //se guarda primero en la lista doble
+		guardarCuboEnListaDoble("Espejo_En_Eje_X"); //busca el nodo y lo enlaza al cubo
 	}
 	else if (op2.compare("4") == 0)
 	{
-
+		filtroEspejoEjeY();
+		listFiltros.insertar("Espejo_En_Eje_Y"); //se guarda primero en la lista doble
+		guardarCuboEnListaDoble("Espejo_En_Eje_Y"); //busca el nodo y lo enlaza al cubo
 	}
 	else if (op2.compare("5") == 0)
 	{
-
+		filtroEspejoEjeY();
+		filtroEspejoEjeX();
+		listFiltros.insertar("Espejo_En_Ambos_Ejex"); //se guarda primero en la lista doble
+		guardarCuboEnListaDoble("Espejo_En_Ambos_Ejex"); //busca el nodo y lo enlaza al cubo
+	}
+	else if (op2.compare("6") == 0)
+	{
+		int ingx;
+		int ingy;
+		printf("\n--> INGRESE REPETICIONES EN X: \n");
+		cin >> ingx;
+		printf("\n--> INGRESE REPETICIONES EN Y: \n");
+		cin >> ingy;
+		//me modifica el cubo
+		collage(ingx,ingy);
+		//redimensiona la imagen para crear pixeles en HTML
+		int image_width = config[0];
+		int image_height = config[1];
+		int pixel_width = config[2];
+		int pixel_height = config[3];
+		int opp = image_width * image_height;
+		int opp2 = opp*ingx;
+		int opp3 = opp2*ingy;
+		arrDimImage[0] = opp3;
+		//redimensiona para ancho alto de imagen, ancho alto de pixel CSS
+		int opp4 = image_width*ingx;
+		int opp5 = image_height * ingy;
+		arrDimImageCss[0] = opp4;
+		arrDimImageCss[1] = opp5;
+		arrDimImageCss[2] = pixel_width;
+		arrDimImageCss[3] = pixel_height;
+		//me guarda en la lista doble
+		string a = "Collage_" + to_string(ingx) + "x" + to_string(ingy);
+		listFiltros.insertar(a);
+		guardarCuboEnListaDoble(a); //busca el nodo y lo enlaza al cubo
+		
+	}
+	else if (op2.compare("7") == 0)
+	{
+		mosaico();
+		int image_width = config[0];
+		int image_height = config[1];
+		int pixel_width = config[2];
+		int pixel_height = config[3];
+		//para html mosaic
+		arrDimImageMosaic[0] = image_width;
+		arrDimImageMosaic[1] = image_height;
+		//redimensiona para ancho alto de imagen, ancho alto de pixel CSS
+		int opp1 = image_width*image_width; //sera el ancho de imagen
+		int opp2 = image_height*image_height;
+		arrDimImageMosaicCss[0] = opp1;
+		arrDimImageMosaicCss[1] = opp2;
+		arrDimImageMosaicCss[2] = 1;
+		arrDimImageMosaicCss[3] = 1;
+		banderaMosaico = true;
 	}
 	else{
 		printf("\n--> OPCION INVALIDA \n");
@@ -2510,8 +3374,8 @@ void subsubMenuFiltrosOp2() // A capa especifica
 		if (verificarSiExisteCapa(ncap)==true)
 		{
 			modificarCapaEspecificaDeCuboNegativo(ncap);
-			listFiltros.insertar("NegativoEnCapa"+ncap); //se guarda primero en la lista doble
-			guardarCuboEnListaDoble("NegativoEnCapa" + ncap); //busca el nodo y lo enlaza al cubo
+			listFiltros.insertar("Negativo_En_Capa_"+ncap); //se guarda primero en la lista doble
+			guardarCuboEnListaDoble("Negativo_En_Capa_" + ncap); //busca el nodo y lo enlaza al cubo
 		}
 		else{
 			printf("\n--> NO EXISTE LA CAPA \n");
@@ -2519,7 +3383,17 @@ void subsubMenuFiltrosOp2() // A capa especifica
 	}
 	else if (op2.compare("2") == 0)
 	{
-
+		string ncap;
+		cin >> ncap;
+		if (verificarSiExisteCapa(ncap) == true)
+		{
+			modificarCapaEspecificaDeCuboGrayScale(ncap);
+			listFiltros.insertar("GrayScale_En_Capa_" + ncap); //se guarda primero en la lista doble
+			guardarCuboEnListaDoble("GrayScale_En_Capa_" + ncap); //busca el nodo y lo enlaza al cubo
+		}
+		else{
+			printf("\n--> NO EXISTE LA CAPA \n");
+		}
 	}	
 	else{
 		printf("\n--> OPCION INVALIDA \n");
