@@ -41,9 +41,8 @@ int config[4]; //guardar la configuracion de la imagen (width ancho)(height alto
 int arrDimImage[2] = {0}; //numero de pixeles para html
 int arrDimImageCss[4] = {0,0,0,0};
 string nombreDeImagen = "";
+string nombreFiltroActual = "";
 bool banderaMosaico = false;
-int arrDimImageMosaic[2] = { 0, 0 };
-int arrDimImageMosaicCss[4] = { 0, 0, 0, 0 };
 
 
 ///////////////////////////////////////////////////////// CLASE NODO MATRIZ ///////////////////////////////////////////////////////////////////
@@ -2093,179 +2092,223 @@ void filtroEspejoEjeY()
 
 void ReporteGraphvizTodasLasCapas()
 {
-	NodoCopiaCubo *aux = copCubo.raizCopCubo->siguiente;
-	string grafo = "";
-
-	if (aux != NULL)
+	if (listFiltros.primero != NULL)
 	{
-		while (aux != NULL) //me recorre la listaArchivos en este sentido -> -> ->
+		nodoFiltro *actual = listFiltros.primero;
+		do
 		{
-			grafo = "";
-			string nomCapExt = aux->nomArchivo; //captura el nombre de la capa
-			string nomCap = nomCapExt.substr(0, nomCapExt.length() - 4); //le quito el .csv			
+			string nomFilt = actual->nomFiltro;
 
-			int filas = copCubo.obtenerCoordenadaYmayorDeCapa(nomCap) + 1; //numero de filas, +1 por la cabecera
-
-			//para cabecera Y
-			nodoMatriz *auxCabY = aux->apuntaRaizDeMatriz;
-			nodoMatriz *auxCabY2 = aux->apuntaRaizDeMatriz;
-
-			while (auxCabY != NULL)
+			if (actual->apuntaCopiaCubo != NULL)
 			{
-				int op = filas - auxCabY->y;
-				if (auxCabY->y == -1)
-				{
-					op = filas+1;
-				}
+				NodoCopiaCubo *aux = actual->apuntaCopiaCubo->siguiente;
+				string grafo = "";
 
-				if (auxCabY->x == -1 && auxCabY->y == -1)
+				if (aux != NULL)
 				{
-					grafo += "\"(" + to_string(auxCabY->x) + "," + to_string(auxCabY->y) + ")" + "\"" + "[label=\"{<data> RAIZ |<next>}\" pos=\"" + to_string(auxCabY->x) + "," + to_string(op) + "!\"];\n";
+					while (aux != NULL) //me recorre la listaArchivos en este sentido -> -> ->
+					{
+						grafo = "";
+						string nomCapExt = aux->nomArchivo; //captura el nombre de la capa
+						string nomCap = nomCapExt.substr(0, nomCapExt.length() - 4); //le quito el .csv			
+
+						int filas = copCubo.obtenerCoordenadaYmayorDeCapa(nomCap) + 1; //numero de filas, +1 por la cabecera
+
+						//para cabecera Y
+						nodoMatriz *auxCabY = aux->apuntaRaizDeMatriz;
+						nodoMatriz *auxCabY2 = aux->apuntaRaizDeMatriz;
+
+						while (auxCabY != NULL)
+						{
+							int op = filas - auxCabY->y;
+							if (auxCabY->y == -1)
+							{
+								op = filas + 1;
+							}
+
+							if (auxCabY->x == -1 && auxCabY->y == -1)
+							{
+								grafo += "\"(" + to_string(auxCabY->x) + "," + to_string(auxCabY->y) + ")" + "\"" + "[label=\"{<data> RAIZ }\" ,  style = filled, fillcolor = firebrick1, width = 1.5 pos=\"" + to_string(auxCabY->x) + "," + to_string(op) + "!\"];\n";
+							}
+							else{
+								grafo += "\"(" + to_string(auxCabY->x) + "," + to_string(auxCabY->y) + ")" + "\"" + "[label=\"{<data>" + auxCabY->dato + " (" + to_string(auxCabY->x) + "," + to_string(auxCabY->y) + ")}" + "\" ,  style = filled, fillcolor = firebrick1, width = 1.5 pos=\"" + to_string(auxCabY->x) + "," + to_string(op) + "!\"];\n";
+							}
+							auxCabY = auxCabY->abajo;
+						}
+
+						//relacion entre cabecera Y
+						while (auxCabY2 != NULL)
+						{
+							if (auxCabY2->abajo != NULL)
+							{
+								grafo += "\"(" + to_string(auxCabY2->x) + "," + to_string(auxCabY2->y) + ")" + "\"" + "->" + "\"(" + to_string(auxCabY2->abajo->x) + "," + to_string(auxCabY2->abajo->y) + ")" + "\" [dir=both]; \n";
+							}
+							auxCabY2 = auxCabY2->abajo;
+						}
+
+						//para cabecera X
+						nodoMatriz *auxCabX = aux->apuntaRaizDeMatriz->siguiente;
+						nodoMatriz *auxCabX2 = aux->apuntaRaizDeMatriz->siguiente;
+
+						while (auxCabX != NULL)
+						{
+							int op = filas - auxCabX->y;
+							if (auxCabX->y == -1)
+							{
+								op = filas + 1;
+							}
+							grafo += "\"(" + to_string(auxCabX->x) + "," + to_string(auxCabX->y) + ")" + "\"" + "[label=\"{<data>" + auxCabX->dato + " (" + to_string(auxCabX->x) + "," + to_string(auxCabX->y) + ")" + "}\" ,  style = filled, fillcolor = firebrick1, width = 1.5 pos=\"" + to_string(auxCabX->x * 3) + "," + to_string(op) + "!\"];\n";
+							auxCabX = auxCabX->siguiente;
+						}
+
+						//relacion entre cabecera X
+						while (auxCabX2 != NULL)
+						{
+							grafo += "\"(" + to_string(auxCabX2->anterior->x) + "," + to_string(auxCabX2->anterior->y) + ")" + "\"" + "->" + "\"(" + to_string(auxCabX2->x) + "," + to_string(auxCabX2->y) + ")" + "\" [dir=both]; \n";
+							auxCabX2 = auxCabX2->siguiente;
+						}
+
+						//Para nodos
+						nodoMatriz *auxNod = aux->apuntaRaizDeMatriz->abajo;
+
+						while (auxNod != NULL)
+						{
+							//creando nodos
+							nodoMatriz *aux2 = auxNod->siguiente;
+							nodoMatriz *aux3 = auxNod->siguiente;
+
+							while (aux2 != NULL)
+							{
+								int op = filas - aux2->y;
+								grafo += "\"(" + to_string(aux2->x) + "," + to_string(aux2->y) + ")" + "\"" + "[label=\"{<data>" + aux2->dato + " (" + to_string(aux2->x) + "," + to_string(aux2->y) + ")" + "}\" width = 1.5 pos=\"" + to_string(aux2->x * 3) + "," + to_string(op) + "!\"];\n";
+								aux2 = aux2->siguiente;
+							}
+
+							//haciendo relacion entre nodos
+							while (aux3 != NULL)
+							{
+								grafo += "\"(" + to_string(aux3->anterior->x) + "," + to_string(aux3->anterior->y) + ")" + "\"" + "->" + "\"(" + to_string(aux3->x) + "," + to_string(aux3->y) + ")" + "\" [dir=both]; \n";
+								grafo += "\"(" + to_string(aux3->x) + "," + to_string(aux3->y) + ")" + "\"" + "->" + "\"(" + to_string(aux3->arriba->x) + "," + to_string(aux3->arriba->y) + ")" + "\" [dir=both]; \n";
+
+								aux3 = aux3->siguiente;
+							}
+
+							auxNod = auxNod->abajo;
+						}
+						string nomGuardar = "REPORT_CAPAS_"+ nombreDeImagen +"_FILTRO_" + nomFilt + "_CAPA_" + nomCap;
+						graphvizEscrituraParaCapa(nomGuardar, grafo);
+						aux = aux->siguiente;
+					}
+
 				}
-				else{
-					grafo += "\"(" + to_string(auxCabY->x) + "," + to_string(auxCabY->y) + ")" + "\"" + "[label=\"{<data>" + auxCabY->dato + "|<next>}\" pos=\"" + to_string(auxCabY->x) + "," + to_string(op) + "!\"];\n";
-				}
-				auxCabY = auxCabY->abajo;
 			}
-
-			//relacion entre cabecera Y
-			while (auxCabY2 != NULL)
-			{
-				if (auxCabY2->abajo != NULL)
-				{
-					grafo += "\"(" + to_string(auxCabY2->x) + "," + to_string(auxCabY2->y) + ")" + "\"" + "->" + "\"(" + to_string(auxCabY2->abajo->x) + "," + to_string(auxCabY2->abajo->y) + ")" + "\" [dir=both]; \n";
-				}
-				auxCabY2 = auxCabY2->abajo;
-			}
-
-			//para cabecera X
-			nodoMatriz *auxCabX = aux->apuntaRaizDeMatriz->siguiente;
-			nodoMatriz *auxCabX2 = aux->apuntaRaizDeMatriz->siguiente;
-
-			while (auxCabX != NULL)
-			{
-				int op = filas - auxCabX->y;
-				if (auxCabX->y == -1)
-				{
-					op = filas+1;
-				}
-				grafo += "\"(" + to_string(auxCabX->x) + "," + to_string(auxCabX->y) + ")" + "\"" + "[label=\"{<data>" + "(" + to_string(auxCabX->x) + "," + to_string(auxCabX->y) + ")" + "|<next>}\" pos=\"" + to_string(auxCabX->x) + "," + to_string(op) + "!\"];\n";
-				auxCabX = auxCabX->siguiente;
-			}
-
-			//relacion entre cabecera X
-			while (auxCabX2 != NULL)
-			{
-				grafo += "\"(" + to_string(auxCabX2->anterior->x) + "," + to_string(auxCabX2->anterior->y) + ")" + "\"" + "->" + "\"(" + to_string(auxCabX2->x) + "," + to_string(auxCabX2->y) + ")" + "\" [dir=both]; \n";
-				auxCabX2 = auxCabX2->siguiente;
-			}
-
-			//Para nodos
-			nodoMatriz *auxNod = aux->apuntaRaizDeMatriz->abajo;
-
-			while (auxNod != NULL)
-			{
-				//creando nodos
-				nodoMatriz *aux2 = auxNod->siguiente;
-				nodoMatriz *aux3 = auxNod->siguiente;
-
-				while (aux2 != NULL)
-				{
-					int op = filas - aux2->y;
-					grafo += "\"(" + to_string(aux2->x) + "," + to_string(aux2->y) + ")" + "\"" + "[label=\"{<data>" + aux2->dato + "|<next>}\" pos=\"" + to_string(aux2->x) + "," + to_string(op) + "!\"];\n";
-					aux2 = aux2->siguiente;
-				}
-
-				//haciendo relacion entre nodos
-				while (aux3 != NULL)
-				{
-					grafo += "\"(" + to_string(aux3->anterior->x) + "," + to_string(aux3->anterior->y) + ")" + "\"" + "->" + "\"(" + to_string(aux3->x) + "," + to_string(aux3->y) + ")" + "\" [dir=both]; \n";
-					grafo += "\"(" + to_string(aux3->x) + "," + to_string(aux3->y) + ")" + "\"" + "->" + "\"(" + to_string(aux3->arriba->x) + "," + to_string(aux3->arriba->y) + ")" + "\" [dir=both]; \n";
-
-					aux3 = aux3->siguiente;
-				}
-
-				auxNod = auxNod->abajo;
-			}
-
-			graphvizEscrituraParaCapa(nomCap, grafo);
-			aux = aux->siguiente;
-		}
-
+			actual = actual->siguiente;
+		} while (actual != listFiltros.primero);
 	}
+		
 }
 
 void ReporteGraphvizLinealizacionPorFilaTodasCapas()
 {
-	NodoCopiaCubo *aux = copCubo.raizCopCubo->siguiente; 
-	string cadena = "";
-
-	if (aux != NULL)
+	if (listFiltros.primero != NULL)
 	{
-		while (aux != NULL) //me recorre la lista en este sentido -> -> ->
+		nodoFiltro *actual = listFiltros.primero;
+		do
 		{
-			cadena = "";
-			string nomCapExt = aux->nomArchivo; //captura el nombre de la capa
-			string nomCap = nomCapExt.substr(0, nomCapExt.length() - 4); //le quito el .csv
-			nomCap += "LinealizacionPorFila";
+			string nomFilt = actual->nomFiltro;
 
-			nodoMatriz *aux2 = aux->apuntaRaizDeMatriz->abajo; //(-1,0)
-
-			while (aux2 != NULL) //me recorre la matriz para abajo
+			if (actual->apuntaCopiaCubo != NULL)
 			{
-				nodoMatriz *aux3 = aux2->siguiente; //
+				NodoCopiaCubo *aux = actual->apuntaCopiaCubo->siguiente;
+				string cadena = "";
 
-				while (aux3 != NULL) //me recorre cada fila de la matriz en este sentido -> -> ->
-				{		
-					cadena = "\"(" + to_string(aux3->x) + "," + to_string(aux3->y) + ") " + aux3->dato + "\"";
-					listLinealizacion.insertar(cadena);
-					aux3 = aux3->siguiente;
+				if (aux != NULL)
+				{
+					while (aux != NULL) //me recorre la lista en este sentido -> -> ->
+					{
+						cadena = "";
+						string nomCapExt = aux->nomArchivo; //captura el nombre de la capa
+						string nomCap = nomCapExt.substr(0, nomCapExt.length() - 4); //le quito el .csv
+
+						nodoMatriz *aux2 = aux->apuntaRaizDeMatriz->abajo; //(-1,0)
+
+						while (aux2 != NULL) //me recorre la matriz para abajo
+						{
+							nodoMatriz *aux3 = aux2->siguiente; //
+
+							while (aux3 != NULL) //me recorre cada fila de la matriz en este sentido -> -> ->
+							{
+								cadena = "\"(" + to_string(aux3->x) + "," + to_string(aux3->y) + ") " + aux3->dato + "\"";
+								listLinealizacion.insertar(cadena);
+								aux3 = aux3->siguiente;
+							}
+
+							aux2 = aux2->abajo;
+						}
+						string cad = listLinealizacion.textoGraphviz();
+						string nomGuardar = "REPORT_LINEALIZACION_POR_FILA_" + nombreDeImagen + "_FILTRO_" + nomFilt + "_CAPA_" + nomCap;
+						graphvizEscrituraParaLinealizacion(nomGuardar, cad);
+						listLinealizacion.vaciar();
+						aux = aux->siguiente;
+					}
 				}
-
-				aux2 = aux2->abajo;
+				
 			}
-			string cad = listLinealizacion.textoGraphviz();
-			graphvizEscrituraParaLinealizacion(nomCap, cad);
-			listLinealizacion.vaciar();
-			aux = aux->siguiente;
-		}
+			actual = actual->siguiente;
+		} while (actual != listFiltros.primero);
 	}
+
 }
 
 void ReporteGraphvizLinealizacionPorColumnaTodasCapas()
 {
-	NodoCopiaCubo *aux = copCubo.raizCopCubo->siguiente;
-	string cadena = "";
 
-	if (aux != NULL)
+	if (listFiltros.primero != NULL)
 	{
-		while (aux != NULL) //me recorre la lista en este sentido -> -> ->
+		nodoFiltro *actual = listFiltros.primero;
+		do
 		{
-			cadena = "";
-			string nomCapExt = aux->nomArchivo; //captura el nombre de la capa
-			string nomCap = nomCapExt.substr(0, nomCapExt.length() - 4); //le quito el .csv
-			nomCap += "LinealizacionPorColumna";
+			string nomFilt = actual->nomFiltro;
 
-			nodoMatriz *aux2 = aux->apuntaRaizDeMatriz->siguiente; //(0,-1)
-
-			while (aux2 != NULL) //me recorre la matriz para -> ->
+			if (actual->apuntaCopiaCubo != NULL)
 			{
-				nodoMatriz *aux3 = aux2->abajo; //
+				NodoCopiaCubo *aux = actual->apuntaCopiaCubo->siguiente;
+				string cadena = "";
 
-				while (aux3 != NULL) //me recorre cada fila de la matriz en este sentido -> -> ->
+				if (aux != NULL)
 				{
-					cadena = "\"(" + to_string(aux3->x) + "," + to_string(aux3->y) + ") " + aux3->dato + "\"";
-					listLinealizacion.insertar(cadena);
-					aux3 = aux3->abajo;
+					while (aux != NULL) //me recorre la lista en este sentido -> -> ->
+					{
+						cadena = "";
+						string nomCapExt = aux->nomArchivo; //captura el nombre de la capa
+						string nomCap = nomCapExt.substr(0, nomCapExt.length() - 4); //le quito el .csv
+
+						nodoMatriz *aux2 = aux->apuntaRaizDeMatriz->siguiente; //(-1,0)
+
+						while (aux2 != NULL) //me recorre la matriz para abajo
+						{
+							nodoMatriz *aux3 = aux2->abajo; //
+
+							while (aux3 != NULL) //me recorre cada fila de la matriz en este sentido -> -> ->
+							{
+								cadena = "\"(" + to_string(aux3->x) + "," + to_string(aux3->y) + ") " + aux3->dato + "\"";
+								listLinealizacion.insertar(cadena);
+								aux3 = aux3->abajo;
+							}
+
+							aux2 = aux2->siguiente;
+						}
+						string cad = listLinealizacion.textoGraphviz();
+						string nomGuardar = "REPORT_LINEALIZACION_POR_COLUMNA_" + nombreDeImagen + "_FILTRO_" + nomFilt + "_CAPA_" + nomCap;
+						graphvizEscrituraParaLinealizacion(nomGuardar, cad);
+						listLinealizacion.vaciar();
+						aux = aux->siguiente;
+					}
 				}
 
-				aux2 = aux2->siguiente;
 			}
-			string cad = listLinealizacion.textoGraphviz();
-			graphvizEscrituraParaLinealizacion(nomCap, cad);
-			listLinealizacion.vaciar();
-			aux = aux->siguiente;
-		}
+			actual = actual->siguiente;
+		} while (actual != listFiltros.primero);
 	}
 }
 
@@ -2309,7 +2352,7 @@ void guardarConfig(string _archivo)
 	}
 }
 
-void graphvizEscrituraParaCapa(string _nomCapa, string _texto)
+void graphvizEscrituraParaCapa(string _nomGuardar, string _texto)
 {
 	//creando carpeta con nombre de imagen (Si ya existe directorio no lo crea de nuevo)
 	string rut = "Exports/" + nombreDeImagen;
@@ -2317,7 +2360,7 @@ void graphvizEscrituraParaCapa(string _nomCapa, string _texto)
 	int a = _mkdir(rutt);
 
 	ofstream archivo;
-	archivo.open("Exports/"+nombreDeImagen+"/"+_nomCapa+".dot", ios::out);
+	archivo.open("Exports/" + nombreDeImagen + "/" + _nomGuardar + ".dot", ios::out);
 
 	if (archivo.fail()){
 		printf("error");
@@ -2334,16 +2377,21 @@ void graphvizEscrituraParaCapa(string _nomCapa, string _texto)
 	archivo.close();
 
 	char* charr;
-	string dott = "neato -Tjpg Exports/" + nombreDeImagen + "/" + _nomCapa + ".dot -o Exports/" + nombreDeImagen + "/" + _nomCapa + ".jpg";
+	string dott = "neato -Tjpg Exports/" + nombreDeImagen + "/" + _nomGuardar + ".dot -o Exports/" + nombreDeImagen + "/" + _nomGuardar + ".jpg";
 	charr = (char *)dott.c_str();
 	system(charr);
 	//system("nohup display ruta_y_nombre_de_imagen_generada.png &");
 }
 
-void graphvizEscrituraParaLinealizacion(string _nomCapa, string _texto)
+void graphvizEscrituraParaLinealizacion(string _nomGuardar, string _texto)
 {
+	//creando carpeta con nombre de imagen (Si ya existe directorio no lo crea de nuevo)
+	string rut = "Exports/" + nombreDeImagen;
+	char* rutt = (char *)rut.c_str();
+	int a = _mkdir(rutt);
+
 	ofstream archivo;
-	archivo.open(_nomCapa + ".dot", ios::out);
+	archivo.open("Exports/" + nombreDeImagen + "/" + _nomGuardar + ".dot", ios::out);
 
 	if (archivo.fail()){
 		printf("error");
@@ -2358,7 +2406,7 @@ void graphvizEscrituraParaLinealizacion(string _nomCapa, string _texto)
 	archivo.close();
 
 	char* charr;
-	string dott = "dot -Tpng " + _nomCapa + ".dot -o " + _nomCapa + ".png";
+	string dott = "dot -Tpng Exports/" + nombreDeImagen + "/" + _nomGuardar + ".dot -o Exports/" + nombreDeImagen + "/" + _nomGuardar + ".png";
 	charr = (char *)dott.c_str();
 	system(charr);
 }
@@ -2392,35 +2440,48 @@ void guardarCuboEnListaDoble(string _filtro)
 void generarHTML()
 {
 	int dim = arrDimImage[0];
+
 	if (banderaMosaico==true) // si es mosaico
 	{
 		string cadena = "";
 		cadena += "<!DOCTYPE html> \n";
 		cadena += "<head> \n";
-		cadena += "<link rel = \"stylesheet\" href = \"si.css\"> \n";
+		cadena += "<link rel = \"stylesheet\" href = \""+ nombreDeImagen + "_" + nombreFiltroActual +".css\"> \n";
 		cadena += "</head> \n";
 		cadena += "<body> \n";
-		cadena += "<div class = \"canvas\"> \n";
+		cadena += "<div class = \"canvasPrincipal\"> \n";
 
-		int image_width = arrDimImageMosaic[0];
-		int image_height = arrDimImageMosaic[1];
+		int image_width = config[0];
+		int image_height = config[1];
 
-		int op = image_width * image_height; //tamanio de cada imagen
-		int op2 = op*image_width; // (cada cuadro de imagen) por (el ancho de imagen)
-		int op3 = op2*image_height; // (por el alto de imagen)
-
-		for (int i = 0; i < op3 ; i++)
+		int op = image_width * image_height;
+		int op2 = image_width * image_height;
+		
+		for (int i = 1; i <= op; i++)
 		{
-			cadena += "<div class=\"pixel\"></div> \n";
+			cadena += "<div class = \"canvas"+ to_string(i) +"\"> \n";
+
+			for (int j = 0; j < op2; j++)
+			{
+				cadena += "<div class=\"pixel\"></div> \n";
+			}
+
+			cadena += "</div> \n";
 		}
 
 		cadena += "</div> \n";
+
 		cadena += "</body> \n";
 		cadena += "</html> \n";
 
-		ofstream archivo;
-		archivo.open("prueba.html", ios::out);
+		//creando carpeta con nombre de imagen (Si ya existe directorio no lo crea de nuevo)
+		string rut = "Exports/" + nombreDeImagen;
+		char* rutt = (char *)rut.c_str();
+		int a = _mkdir(rutt);
 
+		ofstream archivo;
+		archivo.open("Exports/" + nombreDeImagen + "/" + nombreDeImagen + "_" + nombreFiltroActual + ".html", ios::out);
+		
 		if (archivo.fail()){
 			printf("error");
 		}
@@ -2434,7 +2495,7 @@ void generarHTML()
 		string cadena = "";
 		cadena += "<!DOCTYPE html> \n";
 		cadena += "<head> \n";
-		cadena += "<link rel = \"stylesheet\" href = \"si.css\"> \n";
+		cadena += "<link rel = \"stylesheet\" href = \"" + nombreDeImagen + "_" + nombreFiltroActual + ".css\"> \n";
 		cadena += "</head> \n";
 		cadena += "<body> \n";
 		cadena += "<div class = \"canvas\"> \n";
@@ -2455,8 +2516,13 @@ void generarHTML()
 		cadena += "</body> \n";
 		cadena += "</html> \n";
 
+		//creando carpeta con nombre de imagen (Si ya existe directorio no lo crea de nuevo)
+		string rut = "Exports/" + nombreDeImagen;
+		char* rutt = (char *)rut.c_str();
+		int a = _mkdir(rutt);
+
 		ofstream archivo;
-		archivo.open("prueba.html", ios::out);
+		archivo.open("Exports/" + nombreDeImagen + "/" + nombreDeImagen + "_" + nombreFiltroActual + ".html", ios::out);
 
 		if (archivo.fail()){
 			printf("error");
@@ -2470,7 +2536,7 @@ void generarHTML()
 		string cadena = "";
 		cadena += "<!DOCTYPE html> \n";
 		cadena += "<head> \n";
-		cadena += "<link rel = \"stylesheet\" href = \"si.css\"> \n";
+		cadena += "<link rel = \"stylesheet\" href = \"" + nombreDeImagen + "_" + nombreFiltroActual + ".css\"> \n";
 		cadena += "</head> \n";
 		cadena += "<body> \n";
 		cadena += "<div class = \"canvas\"> \n";
@@ -2491,8 +2557,13 @@ void generarHTML()
 		cadena += "</body> \n";
 		cadena += "</html> \n";
 
+		//creando carpeta con nombre de imagen (Si ya existe directorio no lo crea de nuevo)
+		string rut = "Exports/" + nombreDeImagen;
+		char* rutt = (char *)rut.c_str();
+		int a = _mkdir(rutt);
+
 		ofstream archivo;
-		archivo.open("prueba.html", ios::out);
+		archivo.open("Exports/" + nombreDeImagen + "/" + nombreDeImagen + "_" + nombreFiltroActual + ".html", ios::out);
 
 		if (archivo.fail()){
 			printf("error");
@@ -2515,29 +2586,44 @@ void generarCSS()
 		cadena += "body{ \n";
 		cadena += "height: 100vh; \n";
 		cadena += "display: flex; \n";
-		cadena += "justify - content: center; \n";
-		cadena += "align - items: center; } \n";
+		cadena += "justify-content: center; \n";
+		cadena += "align-items: center; } \n";
 
-		cadena += ".canvas { \n";
-		cadena += "background: #bed10f; \n";
+		cadena += ".canvasPrincipal { \n";
+		cadena += "background: #A5A5A5; \n";
 
-		int image_width = arrDimImageMosaicCss[0];
-		int image_height = arrDimImageMosaicCss[1];
-		int pixel_width = arrDimImageMosaicCss[2];
-		int pixel_height = arrDimImageMosaicCss[3];
+		int image_width = config[0];
+		int image_height = config[1];
+		int pixel_width = config[2];
+		int pixel_height = config[3];
 		int op = image_width * pixel_width;
 		int op2 = image_height*pixel_height;
 
-		cadena += "width: " + to_string(480) + "px; \n";
-		cadena += "height: " + to_string(480) + "px; \n";
+		cadena += "width: " + to_string(op) + "px; \n";
+		cadena += "height: " + to_string(op2) + "px; \n";		
 		cadena += " } \n";
+
+		int canv = image_width*image_height;
+		for (int i = 1; i <= canv; i++)
+		{
+			cadena += ".canvas"+ to_string(i) + " { \n";
+			cadena += "width: "+ to_string(pixel_width) +"px; \n";
+			cadena += "height: " + to_string(pixel_height) +"px;  \n";
+			cadena += "float:left; } \n";
+		}
+
+		double a = (double)pixel_width;
+		double b = (double)16;
+		double pix = a / b;
+
 		cadena += ".pixel{ \n";
-		cadena += "width: " + to_string(pixel_width) + "px; \n";
-		cadena += "height: " + to_string(pixel_height) + "px; \n";
+		cadena += "width: "+ to_string(pix) +"px; \n";
+		cadena += "height: " + to_string(pix) + "px; \n";
 		cadena += "float:left; \n";
 		cadena += "} \n";
 
-		NodoCopiaCubo *aux = copCubo.raizCopCubo->siguiente;
+		//GENERA CADA PIXEL DE LA MATRIZ, SE JALAN DESDE MATRIZ ORIGINAL PORQUE LA COPIA SE MODIFICA EL TAMANIO
+		NodolistaArchivos *aux = larch.raizArch->siguiente;
 
 		if (aux != NULL)
 		{
@@ -2559,10 +2645,10 @@ void generarCSS()
 						int op1 = 0;
 						int op2 = 0;
 						filaActual = aux3->y; //FILA ACTUAL
-						tamPixel = arrDimImageCss[0]; //TAMANIOImage
+						tamPixel = config[0]; //TAMANIOPIXEL
 						columnaActual = aux3->x;
 						columnaActualn = columnaActual + 1;//COLUMNAACTUAL +1
-						op1 = tamPixel*filaActual; // (FILAACTUAL*TAMANIImage)
+						op1 = tamPixel*filaActual; // (FILAACTUAL*TAMANIOPIXEL)
 						op2 = op1 + columnaActualn; // (FILAACTUAL*TAMANIOPIXEL)+(COLUMNAACTUAL+1)
 						string hexad = separarRGB_Y_Extraer_Hexa(aux3->dato);
 						cadena += ".pixel:nth-child(" + to_string(op2) + "){ \n";
@@ -2578,8 +2664,55 @@ void generarCSS()
 			}
 		}
 
+		//PARA GENERAR EL COLOR DE FONDO DE LOS .CANVAS
+		NodolistaArchivos *auxc = larch.raizArch->siguiente;
+
+		if (auxc != NULL)
+		{
+			while (auxc != NULL) //me recorre la lista en este sentido -> -> ->
+			{
+				nodoMatriz *aux2c = auxc->apuntaRaizDeMatriz->abajo; //(-1,0)
+
+				while (aux2c != NULL) //me recorre la matriz para abajo
+				{
+					nodoMatriz *aux3c = aux2c->siguiente; //
+
+					while (aux3c != NULL) //me recorre cada fila de la matriz en este sentido -> -> ->
+					{
+						//FORMULA: (FILAACTUAL*TAMANIOPIXEL)+(COLUMNAACTUAL+1)
+						int filaActual = 0;
+						int tamPixel = 0;
+						int columnaActual = 0;
+						int columnaActualn = 0;
+						int op1 = 0;
+						int op2 = 0;
+						filaActual = aux3c->y; //FILA ACTUAL
+						tamPixel = config[0]; //TAMANIOPIXEL
+						columnaActual = aux3c->x;
+						columnaActualn = columnaActual + 1;//COLUMNAACTUAL +1
+						op1 = tamPixel*filaActual; // (FILAACTUAL*TAMANIOPIXEL)
+						op2 = op1 + columnaActualn; // (FILAACTUAL*TAMANIOPIXEL)+(COLUMNAACTUAL+1)
+						string hexad = separarRGB_Y_Extraer_Hexa(aux3c->dato);
+						cadena += ".canvas" + to_string(op2) + "{ \n";
+						cadena += "background: " + hexad + "; \n";
+						cadena += "} \n\n";
+
+						aux3c = aux3c->siguiente;
+					}
+
+					aux2c = aux2c->abajo;
+				}
+				auxc = auxc->siguiente;
+			}
+		}
+
+		//creando carpeta con nombre de imagen (Si ya existe directorio no lo crea de nuevo)
+		string rut = "Exports/" + nombreDeImagen;
+		char* rutt = (char *)rut.c_str();
+		int am = _mkdir(rutt);
+
 		ofstream archivo;
-		archivo.open("si.css", ios::out);
+		archivo.open("Exports/" + nombreDeImagen + "/" + nombreDeImagen + "_" + nombreFiltroActual + ".css", ios::out);
 
 		if (archivo.fail()){
 			printf("error");
@@ -2592,6 +2725,13 @@ void generarCSS()
 	else if (aa!=0) //si es distinto a 0 es collage
 	{
 		string cadena = "";
+
+		cadena += "body{ \n";
+		cadena += "height: 100vh; \n";
+		cadena += "display: flex; \n";
+		cadena += "justify-content: center; \n";
+		cadena += "align-items: center; } \n";
+
 		cadena += "body{ \n";
 		cadena += "height: 100vh; \n";
 		cadena += "display: flex; \n";
@@ -2599,7 +2739,7 @@ void generarCSS()
 		cadena += "align - items: center; } \n";
 
 		cadena += ".canvas { \n";
-		cadena += "background: #bed10f; \n";
+		cadena += "background: #E3E3E3; \n";
 		
 		int image_width = arrDimImageCss[0];
 		int image_height = arrDimImageCss[1];
@@ -2658,8 +2798,13 @@ void generarCSS()
 			}
 		}
 
+		//creando carpeta con nombre de imagen (Si ya existe directorio no lo crea de nuevo)
+		string rut = "Exports/" + nombreDeImagen;
+		char* rutt = (char *)rut.c_str();
+		int am = _mkdir(rutt);
+
 		ofstream archivo;
-		archivo.open("si.css", ios::out);
+		archivo.open("Exports/" + nombreDeImagen + "/" + nombreDeImagen + "_" + nombreFiltroActual + ".css", ios::out);
 
 		if (archivo.fail()){
 			printf("error");
@@ -2671,8 +2816,15 @@ void generarCSS()
 	}
 	else{
 		string cadena = "";
+
+		cadena += "body{ \n";
+		cadena += "height: 100vh; \n";
+		cadena += "display: flex; \n";
+		cadena += "justify-content: center; \n";
+		cadena += "align-items: center; } \n";
+
 		cadena += ".canvas { \n";
-		cadena += "background: #bed10f; \n";
+		cadena += "background: #E3E3E3; \n";
 
 		int image_width = config[0];
 		int image_height = config[1];
@@ -2731,8 +2883,13 @@ void generarCSS()
 			}
 		}
 
+		//creando carpeta con nombre de imagen (Si ya existe directorio no lo crea de nuevo)
+		string rut = "Exports/" + nombreDeImagen;
+		char* rutt = (char *)rut.c_str();
+		int am = _mkdir(rutt);
+
 		ofstream archivo;
-		archivo.open("si.css", ios::out);
+		archivo.open("Exports/" + nombreDeImagen + "/" + nombreDeImagen + "_" + nombreFiltroActual + ".css", ios::out);
 
 		if (archivo.fail()){
 			printf("error");
@@ -3189,24 +3346,25 @@ void opcionesMenu(int _opcion)
 		subMenuInsertarImagen();
 		break;
 	case 2:
-		//copCubo.raizCopCubo->siguiente=NULL;
-		//listFiltros.imprimir();
-		//larch.raizArch->siguiente = NULL; //limpiar lista
 		break;
 	case 3:
 		subMenuFiltros();
-		arrDimImage[0] = 0; //para que no entre en collage en exportar (por si se genera una imagen que no sea collage)
 		break;
 	case 4:
 		break;
 	case 5:
 		generarHTML();
 		generarCSS();
+		//restaurando datos
+		arrDimImage[0] = 0;
+		banderaMosaico = false;
+		copCubo.raizCopCubo->siguiente = NULL;
+		copiaCuboDisperso();
 		break;
 	case 6:		
 		ReporteGraphvizTodasLasCapas();
-		//ReporteGraphvizLinealizacionPorFilaTodasCapas();
-		//ReporteGraphvizLinealizacionPorColumnaTodasCapas();
+		ReporteGraphvizLinealizacionPorFilaTodasCapas();
+		ReporteGraphvizLinealizacionPorColumnaTodasCapas();
 		break;
 	case 7:
 		exit(0);
@@ -3218,7 +3376,6 @@ void opcionesMenu(int _opcion)
 int main()
 {
 	menu();
-
 	return 0;
 }
 
@@ -3230,6 +3387,7 @@ void subMenuInsertarImagen()
 	printf(" \n--> INGRESE NOMBRE DE ARCHIVO PRINCIPAL (SIN EXTENSION)\n");
 	cin >> a;
 	nombreDeImagen = a;
+	nombreFiltroActual = "Original";
 	a += ".csv";
 	CrearCuboDisperso(a);
 	copiaCuboDisperso();
@@ -3276,24 +3434,28 @@ void subsubMenuFiltrosOp1() // Imagen completa
 		modificarTodasLasCapasDeCuboNegativo();
 		listFiltros.insertar("Negativo_En_Todas_Las_Capas"); //se guarda primero en la lista doble
 		guardarCuboEnListaDoble("Negativo_En_Todas_Las_Capas"); //busca el nodo y lo enlaza al cubo
+		nombreFiltroActual = "Negativo_En_Todas_Las_Capas";
 	}
 	else if (op2.compare("2") == 0)
 	{
 		modificarTodasLasCapasDeCuboGrayScale();
 		listFiltros.insertar("GrayScale_En_Todas_Las_Capas"); //se guarda primero en la lista doble
 		guardarCuboEnListaDoble("GrayScale_En_Todas_Las_Capas"); //busca el nodo y lo enlaza al cubo
+		nombreFiltroActual = "GrayScale_En_Todas_Las_Capas";
 	}
 	else if (op2.compare("3") == 0)
 	{
 		filtroEspejoEjeX();
 		listFiltros.insertar("Espejo_En_Eje_X"); //se guarda primero en la lista doble
 		guardarCuboEnListaDoble("Espejo_En_Eje_X"); //busca el nodo y lo enlaza al cubo
+		nombreFiltroActual = "Espejo_En_Eje_X";
 	}
 	else if (op2.compare("4") == 0)
 	{
 		filtroEspejoEjeY();
 		listFiltros.insertar("Espejo_En_Eje_Y"); //se guarda primero en la lista doble
 		guardarCuboEnListaDoble("Espejo_En_Eje_Y"); //busca el nodo y lo enlaza al cubo
+		nombreFiltroActual = "Espejo_En_Eje_Y";
 	}
 	else if (op2.compare("5") == 0)
 	{
@@ -3301,6 +3463,7 @@ void subsubMenuFiltrosOp1() // Imagen completa
 		filtroEspejoEjeX();
 		listFiltros.insertar("Espejo_En_Ambos_Ejex"); //se guarda primero en la lista doble
 		guardarCuboEnListaDoble("Espejo_En_Ambos_Ejex"); //busca el nodo y lo enlaza al cubo
+		nombreFiltroActual = "Espejo_En_Ambos_Ejex";
 	}
 	else if (op2.compare("6") == 0)
 	{
@@ -3332,31 +3495,20 @@ void subsubMenuFiltrosOp1() // Imagen completa
 		string a = "Collage_" + to_string(ingx) + "x" + to_string(ingy);
 		listFiltros.insertar(a);
 		guardarCuboEnListaDoble(a); //busca el nodo y lo enlaza al cubo
+		nombreFiltroActual = a;
 		
 	}
 	else if (op2.compare("7") == 0)
 	{
 		mosaico();
-		int image_width = config[0];
-		int image_height = config[1];
-		int pixel_width = config[2];
-		int pixel_height = config[3];
-		//para html mosaic
-		arrDimImageMosaic[0] = image_width;
-		arrDimImageMosaic[1] = image_height;
-		//redimensiona para ancho alto de imagen, ancho alto de pixel CSS
-		int opp1 = image_width*image_width; //sera el ancho de imagen
-		int opp2 = image_height*image_height;
-		arrDimImageMosaicCss[0] = opp1;
-		arrDimImageMosaicCss[1] = opp2;
-		arrDimImageMosaicCss[2] = 1;
-		arrDimImageMosaicCss[3] = 1;
+		listFiltros.insertar("Mosaico");
+		guardarCuboEnListaDoble("Mosaico"); //busca el nodo y lo enlaza al cubo
 		banderaMosaico = true;
+		nombreFiltroActual = "Mosaico";
 	}
 	else{
 		printf("\n--> OPCION INVALIDA \n");
-	}
-	
+	}	
 }
 
 void subsubMenuFiltrosOp2() // A capa especifica
@@ -3368,14 +3520,16 @@ void subsubMenuFiltrosOp2() // A capa especifica
 	printf("\n--> ELIJA UNA OPCION: \n");
 	cin >> op2;
 	if (op2.compare("1") == 0)
-	{
+	{		
 		string ncap;
+		printf("\n--> INGRESE NOMBRE DE CAPA: \n");
 		cin >> ncap;
 		if (verificarSiExisteCapa(ncap)==true)
 		{
 			modificarCapaEspecificaDeCuboNegativo(ncap);
 			listFiltros.insertar("Negativo_En_Capa_"+ncap); //se guarda primero en la lista doble
 			guardarCuboEnListaDoble("Negativo_En_Capa_" + ncap); //busca el nodo y lo enlaza al cubo
+			nombreFiltroActual = "Negativo_En_Capa_" + ncap;
 		}
 		else{
 			printf("\n--> NO EXISTE LA CAPA \n");
@@ -3384,12 +3538,14 @@ void subsubMenuFiltrosOp2() // A capa especifica
 	else if (op2.compare("2") == 0)
 	{
 		string ncap;
+		printf("\n--> INGRESE NOMBRE DE CAPA: \n");
 		cin >> ncap;
 		if (verificarSiExisteCapa(ncap) == true)
 		{
 			modificarCapaEspecificaDeCuboGrayScale(ncap);
 			listFiltros.insertar("GrayScale_En_Capa_" + ncap); //se guarda primero en la lista doble
 			guardarCuboEnListaDoble("GrayScale_En_Capa_" + ncap); //busca el nodo y lo enlaza al cubo
+			nombreFiltroActual = "GrayScale_En_Capa_" + ncap;
 		}
 		else{
 			printf("\n--> NO EXISTE LA CAPA \n");
