@@ -19,7 +19,8 @@ string obtenerRGBnegativo(string);
 string obtenerRGBgrayscale(string);
 void filtroEspejoEjeX();
 void filtroEspejoEjeY();
-void ReporteGraphvizTodasLasCapas();
+void ReporteGraphvizTodasLasCapasListaFiltros(string);
+void ReporteGraphvizCapaEspecificaListaFiltros(string, int);
 void ReporteGraphvizLinealizacionPorFilaTodasCapas();
 void ReporteGraphvizLinealizacionPorColumnaTodasCapas();
 void guardarConfig(string);
@@ -27,6 +28,7 @@ void graphvizEscrituraParaCapa(string, string);
 void graphvizEscrituraParaCapaDesdeArbol(string, string, string);
 void graphvizEscrituraParaLinealizacion(string, string);
 void graphvizEscrituraParaLinealizacionDesdeArbol(string,string,string);
+void graphvizEscrituraParaRecorrido(string, string);
 void guardarCuboEnListaDoble(string);
 
 void subMenuInsertarImagen();
@@ -34,9 +36,14 @@ void subMenuSeleccionarImagen();
 void subMenuFiltros();
 void subsubMenuFiltrosOp1();
 void subsubMenuFiltrosOp2();
+void subMenuEdicionManual();
+void subMenuEdicionManualOp1();
+void subMenuEdicionManualOp2();
 void subMenuReportes();
 void subMenuReportesOp2();
 void subMenuReporteOp3();
+void subMenuReporteOp4();
+void subMenuReporteOp5();
 
 string rgbR(int num);
 string rgbG(int num);
@@ -846,6 +853,8 @@ public:
 	void linealizacionPorFila();
 	void linealizacionPorColumna();
 	void imprimir();
+	bool buscarCoordenadasXY(string,int,int);
+	void modificarCoordenadaXY(string, int, int,string);
 };
 
 listaArchivos::listaArchivos()
@@ -1050,6 +1059,85 @@ void listaArchivos::imprimir()
 	}
 }
 
+bool listaArchivos::buscarCoordenadasXY(string capa,int x, int y)
+{
+	NodolistaArchivos *aux = this->raizArch->siguiente;
+	bool encontrado = false;
+
+	if (aux != NULL)
+	{
+		while (aux != NULL) //me recorre la listaArchivos en este sentido -> -> ->
+		{
+			string nomCapExt = aux->nomArchivo; //captura el nombre de la capa
+			string nomCap = nomCapExt.substr(0, nomCapExt.length() - 4); //le quito el .csv	
+
+			if (nomCap.compare(capa)==0)
+			{
+				nodoMatriz *aux2 = aux->apuntaRaizDeMatriz; //se posiciona en la raiz de la matriz
+
+				while (aux2 != NULL) //me recorre la matriz para abajo
+				{
+					nodoMatriz *aux3 = aux2; //aux2 va hacia abajo, entonces aux3=aux2 para recorrer toda una fila
+
+					while (aux3 != NULL) //me recorre cada fila de la matriz en este sentido -> -> ->
+					{
+						if ((aux3->x==x)&&(aux3->y==y))
+						{
+							encontrado = true;
+						}
+						aux3 = aux3->siguiente;
+					}
+
+					aux2 = aux2->abajo;
+				}
+			}		
+
+			aux = aux->siguiente;
+		}
+
+	}
+	return encontrado;
+}
+
+void listaArchivos::modificarCoordenadaXY(string capa, int x, int y, string rgb)
+{
+	NodolistaArchivos *aux = this->raizArch->siguiente;
+
+	if (aux != NULL)
+	{
+		while (aux != NULL) //me recorre la listaArchivos en este sentido -> -> ->
+		{
+			string nomCapExt = aux->nomArchivo; //captura el nombre de la capa
+			string nomCap = nomCapExt.substr(0, nomCapExt.length() - 4); //le quito el .csv	
+
+			if (nomCap.compare(capa) == 0)
+			{
+				nodoMatriz *aux2 = aux->apuntaRaizDeMatriz; //se posiciona en la raiz de la matriz
+
+				while (aux2 != NULL) //me recorre la matriz para abajo
+				{
+					nodoMatriz *aux3 = aux2; //aux2 va hacia abajo, entonces aux3=aux2 para recorrer toda una fila
+
+					while (aux3 != NULL) //me recorre cada fila de la matriz en este sentido -> -> ->
+					{
+						if ((aux3->x == x) && (aux3->y == y))
+						{
+							aux3->dato = rgb;
+						}
+						aux3 = aux3->siguiente;
+					}
+
+					aux2 = aux2->abajo;
+				}
+			}
+
+			aux = aux->siguiente;
+		}
+
+	}
+}
+
+
 ///////////////////////////////////////////////////////// CLASE NODO COPIA CUBO /////////////////////////////////////////////////////////////////
 
 class NodoCopiaCubo
@@ -1177,7 +1265,6 @@ int copiaCubo::obtenerCoordenadaYmayorDeCapa(string nomCapa)
 		{
 			string nomCapExt = aux->nomArchivo; //captura el nombre de la capa
 			string nomCap = nomCapExt.substr(0, nomCapExt.length() - 4); //le quito el .csv	
-
 			if (nomCap.compare(nomCapa)==0)
 			{
 				nodoMatriz *aux2 = aux->apuntaRaizDeMatriz; //se posiciona en la raiz de la matriz
@@ -1295,6 +1382,9 @@ public:
 	listaDobCircuFiltros();//constructor
 	void insertar(string);
 	string filtrosAplicados();
+	string reporteFiltros();
+	bool existeFiltro(string);
+	bool existeCapaEnFiltroEspecifico(string,int);
 	void imprimir();
 	void vaciar();
 };
@@ -1402,6 +1492,79 @@ void listaDobCircuFiltros::vaciar()
 {
 	this->primero = NULL;
 	this->ultimo = NULL;
+}
+
+string listaDobCircuFiltros::reporteFiltros()
+{
+	string cadena = "";
+	if (this->primero != NULL)
+	{
+		nodoFiltro *actual = this->primero;
+		do
+		{
+			cadena += "\"" + actual->nomFiltro + "\" -> \"" + actual->siguiente->nomFiltro + "\" [dir=both]; \n";			
+
+			actual = actual->siguiente;
+		} while (actual != primero);
+	}
+	return cadena;
+}
+
+bool listaDobCircuFiltros::existeFiltro(string nomF)
+{
+	bool encontrado = false;
+
+	if (this->primero != NULL)
+	{
+		nodoFiltro *actual = this->primero;
+		do
+		{
+			if (actual->nomFiltro.compare(nomF)==0)
+			{
+				encontrado = true;
+			}
+
+			actual = actual->siguiente;
+		} while (actual != primero);
+	}
+
+	return encontrado;
+}
+
+bool listaDobCircuFiltros::existeCapaEnFiltroEspecifico(string nomF, int cap)
+{
+	bool encontrado = false;
+
+	if (this->primero != NULL)
+	{
+		nodoFiltro *actual = this->primero;
+		do
+		{
+			if (actual->nomFiltro.compare(nomF)==0)
+			{
+				if (actual->apuntaCopiaCubo != NULL)
+				{
+					NodoCopiaCubo *aux = actual->apuntaCopiaCubo;
+
+					if (aux != NULL)
+					{
+						while (aux != NULL) //me recorre la lista copia cubo en este sentido -> -> ->
+						{
+							if (aux->indice==cap)
+							{
+								encontrado = true;
+							}
+							aux = aux->siguiente;
+						}
+					}
+				}
+			}
+			
+			actual = actual->siguiente;
+		} while (actual != primero);
+	}
+
+	return encontrado;
 }
 
 //////////////////////////////////////////////////////////////////// LISTA PARA LINEALIZACION /////////////////////////////////////////////////////////////////
@@ -2197,6 +2360,77 @@ void reporteLinealizacionPorFilaDeCuboDeArbol(nodoArbol *&arbolImg, string nomIM
 	}
 }
 
+void reporteInorder(nodoArbol *arbolImg)
+{
+	string cadena = "";
+
+	if (arbolImg == NULL)
+	{
+		//printf("\nAUN NO HAY IMAGENES EN EL SISTEMA!\n");
+	}
+	else{
+		reporteInorder(arbolImg->izquierdo);
+		string cadena = "\""+ arbolImg->nomImg + ", W: " + to_string(arbolImg->imgWidth) + ", H: " + to_string(arbolImg->imgHeight) + ", PW: " + to_string(arbolImg->pixWidth) + "px, PH: " + to_string(arbolImg->pixHeight) + "px\"" ;
+		listLinealizacion.insertar(cadena);
+		reporteInorder(arbolImg->derecho);
+	}
+}
+
+void reportePreorder(nodoArbol *arbolImg)
+{
+	string cadena = "";
+
+	if (arbolImg == NULL)
+	{
+		//printf("\nAUN NO HAY IMAGENES EN EL SISTEMA!\n");
+	}
+	else{
+		string cadena = "\"" + arbolImg->nomImg + ", W: " + to_string(arbolImg->imgWidth) + ", H: " + to_string(arbolImg->imgHeight) + ", PW: " + to_string(arbolImg->pixWidth) + "px, PH: " + to_string(arbolImg->pixHeight) + "px\"";
+		listLinealizacion.insertar(cadena);
+		reportePreorder(arbolImg->izquierdo);		
+		reportePreorder(arbolImg->derecho);
+	}
+}
+
+void reportePosorder(nodoArbol *arbolImg)
+{
+	string cadena = "";
+
+	if (arbolImg == NULL)
+	{
+		//printf("\nAUN NO HAY IMAGENES EN EL SISTEMA!\n");
+	}
+	else{		
+		reportePosorder(arbolImg->izquierdo);
+		reportePosorder(arbolImg->derecho);
+		string cadena = "\"" + arbolImg->nomImg + ", W: " + to_string(arbolImg->imgWidth) + ", H: " + to_string(arbolImg->imgHeight) + ", PW: " + to_string(arbolImg->pixWidth) + "px, PH: " + to_string(arbolImg->pixHeight) + "px\"";
+		listLinealizacion.insertar(cadena);
+	}
+}
+
+string cadrep = "";
+void reporteArbol(nodoArbol *arbolImg)
+{
+	if (arbolImg == NULL)
+	{
+		return;
+	}
+	else{
+		cout << arbolImg->nomImg << endl;
+		if (arbolImg->izquierdo != NULL)
+		{
+			cadrep += arbolImg->nomImg + "->" + arbolImg->izquierdo->nomImg + "\n";
+		}
+		if (arbolImg->derecho!=NULL)
+		{
+			cadrep += arbolImg->nomImg + "->" + arbolImg->derecho->nomImg + "\n";
+		}		
+		reporteArbol(arbolImg->derecho);
+		reporteArbol(arbolImg->izquierdo);
+	}
+}
+
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -2812,122 +3046,247 @@ void filtroEspejoEjeY()
 	}
 }
 
-void ReporteGraphvizTodasLasCapas()
+void ReporteGraphvizTodasLasCapasListaFiltros(string nomF)
 {
 	if (listFiltros.primero != NULL)
 	{
 		nodoFiltro *actual = listFiltros.primero;
 		do
 		{
-			string nomFilt = actual->nomFiltro;
-
-			if (actual->apuntaCopiaCubo != NULL)
+			if (actual->nomFiltro.compare(nomF)==0)
 			{
-				NodoCopiaCubo *aux = actual->apuntaCopiaCubo->siguiente;
-				string grafo = "";
-
-				if (aux != NULL)
+				if (actual->apuntaCopiaCubo != NULL)
 				{
-					while (aux != NULL) //me recorre la listaArchivos en este sentido -> -> ->
+					NodoCopiaCubo *aux = actual->apuntaCopiaCubo->siguiente;
+					string grafo = "";
+
+					if (aux != NULL)
 					{
-						grafo = "";
-						string nomCapExt = aux->nomArchivo; //captura el nombre de la capa
-						string nomCap = nomCapExt.substr(0, nomCapExt.length() - 4); //le quito el .csv			
-
-						int filas = copCubo.obtenerCoordenadaYmayorDeCapa(nomCap) + 1; //numero de filas, +1 por la cabecera
-
-						//para cabecera Y
-						nodoMatriz *auxCabY = aux->apuntaRaizDeMatriz;
-						nodoMatriz *auxCabY2 = aux->apuntaRaizDeMatriz;
-
-						while (auxCabY != NULL)
+						while (aux != NULL) //me recorre la listaArchivos en este sentido -> -> ->
 						{
-							int op = filas - auxCabY->y;
-							if (auxCabY->y == -1)
+							grafo = "";
+							string nomCapExt = aux->nomArchivo; //captura el nombre de la capa
+							string nomCap = nomCapExt.substr(0, nomCapExt.length() - 4); //le quito el .csv			
+
+							int filas = copCubo.obtenerCoordenadaYmayorDeCapa(nomCap) + 1; //numero de filas, +1 por la cabecera
+
+							//para cabecera Y
+							nodoMatriz *auxCabY = aux->apuntaRaizDeMatriz;
+							nodoMatriz *auxCabY2 = aux->apuntaRaizDeMatriz;
+
+							while (auxCabY != NULL)
 							{
-								op = filas + 1;
+								int op = filas - auxCabY->y;
+								if (auxCabY->y == -1)
+								{
+									op = filas + 1;
+								}
+
+								if (auxCabY->x == -1 && auxCabY->y == -1)
+								{
+									grafo += "\"(" + to_string(auxCabY->x) + "," + to_string(auxCabY->y) + ")" + "\"" + "[label=\"{<data> RAIZ }\" ,  style = filled, fillcolor = firebrick1, width = 1.5 pos=\"" + to_string(auxCabY->x) + "," + to_string(op) + "!\"];\n";
+								}
+								else{
+									grafo += "\"(" + to_string(auxCabY->x) + "," + to_string(auxCabY->y) + ")" + "\"" + "[label=\"{<data>" + auxCabY->dato + " (" + to_string(auxCabY->x) + "," + to_string(auxCabY->y) + ")}" + "\" ,  style = filled, fillcolor = firebrick1, width = 1.5 pos=\"" + to_string(auxCabY->x) + "," + to_string(op) + "!\"];\n";
+								}
+								auxCabY = auxCabY->abajo;
 							}
 
-							if (auxCabY->x == -1 && auxCabY->y == -1)
+							//relacion entre cabecera Y
+							while (auxCabY2 != NULL)
 							{
-								grafo += "\"(" + to_string(auxCabY->x) + "," + to_string(auxCabY->y) + ")" + "\"" + "[label=\"{<data> RAIZ }\" ,  style = filled, fillcolor = firebrick1, width = 1.5 pos=\"" + to_string(auxCabY->x) + "," + to_string(op) + "!\"];\n";
+								if (auxCabY2->abajo != NULL)
+								{
+									grafo += "\"(" + to_string(auxCabY2->x) + "," + to_string(auxCabY2->y) + ")" + "\"" + "->" + "\"(" + to_string(auxCabY2->abajo->x) + "," + to_string(auxCabY2->abajo->y) + ")" + "\" [dir=both]; \n";
+								}
+								auxCabY2 = auxCabY2->abajo;
 							}
-							else{
-								grafo += "\"(" + to_string(auxCabY->x) + "," + to_string(auxCabY->y) + ")" + "\"" + "[label=\"{<data>" + auxCabY->dato + " (" + to_string(auxCabY->x) + "," + to_string(auxCabY->y) + ")}" + "\" ,  style = filled, fillcolor = firebrick1, width = 1.5 pos=\"" + to_string(auxCabY->x) + "," + to_string(op) + "!\"];\n";
+
+							//para cabecera X
+							nodoMatriz *auxCabX = aux->apuntaRaizDeMatriz->siguiente;
+							nodoMatriz *auxCabX2 = aux->apuntaRaizDeMatriz->siguiente;
+
+							while (auxCabX != NULL)
+							{
+								int op = filas - auxCabX->y;
+								if (auxCabX->y == -1)
+								{
+									op = filas + 1;
+								}
+								grafo += "\"(" + to_string(auxCabX->x) + "," + to_string(auxCabX->y) + ")" + "\"" + "[label=\"{<data>" + auxCabX->dato + " (" + to_string(auxCabX->x) + "," + to_string(auxCabX->y) + ")" + "}\" ,  style = filled, fillcolor = firebrick1, width = 1.5 pos=\"" + to_string(auxCabX->x * 3) + "," + to_string(op) + "!\"];\n";
+								auxCabX = auxCabX->siguiente;
 							}
-							auxCabY = auxCabY->abajo;
+
+							//relacion entre cabecera X
+							while (auxCabX2 != NULL)
+							{
+								grafo += "\"(" + to_string(auxCabX2->anterior->x) + "," + to_string(auxCabX2->anterior->y) + ")" + "\"" + "->" + "\"(" + to_string(auxCabX2->x) + "," + to_string(auxCabX2->y) + ")" + "\" [dir=both]; \n";
+								auxCabX2 = auxCabX2->siguiente;
+							}
+
+							//Para nodos
+							nodoMatriz *auxNod = aux->apuntaRaizDeMatriz->abajo;
+
+							while (auxNod != NULL)
+							{
+								//creando nodos
+								nodoMatriz *aux2 = auxNod->siguiente;
+								nodoMatriz *aux3 = auxNod->siguiente;
+
+								while (aux2 != NULL)
+								{
+									int op = filas - aux2->y;
+									grafo += "\"(" + to_string(aux2->x) + "," + to_string(aux2->y) + ")" + "\"" + "[label=\"{<data>" + aux2->dato + " (" + to_string(aux2->x) + "," + to_string(aux2->y) + ")" + "}\" width = 1.5 pos=\"" + to_string(aux2->x * 3) + "," + to_string(op) + "!\"];\n";
+									aux2 = aux2->siguiente;
+								}
+
+								//haciendo relacion entre nodos
+								while (aux3 != NULL)
+								{
+									grafo += "\"(" + to_string(aux3->anterior->x) + "," + to_string(aux3->anterior->y) + ")" + "\"" + "->" + "\"(" + to_string(aux3->x) + "," + to_string(aux3->y) + ")" + "\" [dir=both]; \n";
+									grafo += "\"(" + to_string(aux3->x) + "," + to_string(aux3->y) + ")" + "\"" + "->" + "\"(" + to_string(aux3->arriba->x) + "," + to_string(aux3->arriba->y) + ")" + "\" [dir=both]; \n";
+
+									aux3 = aux3->siguiente;
+								}
+
+								auxNod = auxNod->abajo;
+							}
+							string nomGuardar = "REPORT_CAPAS_" + nombreDeImagen + "_FILTRO_" + nomF + "_CAPA_" + nomCap;
+							graphvizEscrituraParaCapa(nomGuardar, grafo);
+							aux = aux->siguiente;
 						}
 
-						//relacion entre cabecera Y
-						while (auxCabY2 != NULL)
-						{
-							if (auxCabY2->abajo != NULL)
-							{
-								grafo += "\"(" + to_string(auxCabY2->x) + "," + to_string(auxCabY2->y) + ")" + "\"" + "->" + "\"(" + to_string(auxCabY2->abajo->x) + "," + to_string(auxCabY2->abajo->y) + ")" + "\" [dir=both]; \n";
-							}
-							auxCabY2 = auxCabY2->abajo;
-						}
-
-						//para cabecera X
-						nodoMatriz *auxCabX = aux->apuntaRaizDeMatriz->siguiente;
-						nodoMatriz *auxCabX2 = aux->apuntaRaizDeMatriz->siguiente;
-
-						while (auxCabX != NULL)
-						{
-							int op = filas - auxCabX->y;
-							if (auxCabX->y == -1)
-							{
-								op = filas + 1;
-							}
-							grafo += "\"(" + to_string(auxCabX->x) + "," + to_string(auxCabX->y) + ")" + "\"" + "[label=\"{<data>" + auxCabX->dato + " (" + to_string(auxCabX->x) + "," + to_string(auxCabX->y) + ")" + "}\" ,  style = filled, fillcolor = firebrick1, width = 1.5 pos=\"" + to_string(auxCabX->x * 3) + "," + to_string(op) + "!\"];\n";
-							auxCabX = auxCabX->siguiente;
-						}
-
-						//relacion entre cabecera X
-						while (auxCabX2 != NULL)
-						{
-							grafo += "\"(" + to_string(auxCabX2->anterior->x) + "," + to_string(auxCabX2->anterior->y) + ")" + "\"" + "->" + "\"(" + to_string(auxCabX2->x) + "," + to_string(auxCabX2->y) + ")" + "\" [dir=both]; \n";
-							auxCabX2 = auxCabX2->siguiente;
-						}
-
-						//Para nodos
-						nodoMatriz *auxNod = aux->apuntaRaizDeMatriz->abajo;
-
-						while (auxNod != NULL)
-						{
-							//creando nodos
-							nodoMatriz *aux2 = auxNod->siguiente;
-							nodoMatriz *aux3 = auxNod->siguiente;
-
-							while (aux2 != NULL)
-							{
-								int op = filas - aux2->y;
-								grafo += "\"(" + to_string(aux2->x) + "," + to_string(aux2->y) + ")" + "\"" + "[label=\"{<data>" + aux2->dato + " (" + to_string(aux2->x) + "," + to_string(aux2->y) + ")" + "}\" width = 1.5 pos=\"" + to_string(aux2->x * 3) + "," + to_string(op) + "!\"];\n";
-								aux2 = aux2->siguiente;
-							}
-
-							//haciendo relacion entre nodos
-							while (aux3 != NULL)
-							{
-								grafo += "\"(" + to_string(aux3->anterior->x) + "," + to_string(aux3->anterior->y) + ")" + "\"" + "->" + "\"(" + to_string(aux3->x) + "," + to_string(aux3->y) + ")" + "\" [dir=both]; \n";
-								grafo += "\"(" + to_string(aux3->x) + "," + to_string(aux3->y) + ")" + "\"" + "->" + "\"(" + to_string(aux3->arriba->x) + "," + to_string(aux3->arriba->y) + ")" + "\" [dir=both]; \n";
-
-								aux3 = aux3->siguiente;
-							}
-
-							auxNod = auxNod->abajo;
-						}
-						string nomGuardar = "REPORT_CAPAS_"+ nombreDeImagen +"_FILTRO_" + nomFilt + "_CAPA_" + nomCap;
-						graphvizEscrituraParaCapa(nomGuardar, grafo);
-						aux = aux->siguiente;
 					}
-
 				}
 			}
+			
 			actual = actual->siguiente;
 		} while (actual != listFiltros.primero);
 	}
 		
+}
+
+void ReporteGraphvizCapaEspecificaListaFiltros(string nomF, int cap)
+{
+	if (listFiltros.primero != NULL)
+	{
+		nodoFiltro *actual = listFiltros.primero;
+		do
+		{
+			if (actual->nomFiltro.compare(nomF) == 0)
+			{
+				if (actual->apuntaCopiaCubo != NULL)
+				{
+					NodoCopiaCubo *aux = actual->apuntaCopiaCubo->siguiente;
+					string grafo = "";
+
+					if (aux != NULL)
+					{
+						while (aux != NULL) //me recorre la listaArchivos en este sentido -> -> ->
+						{
+							if (aux->indice==cap)
+							{
+								grafo = "";
+								string nomCapExt = aux->nomArchivo; //captura el nombre de la capa
+								string nomCap = nomCapExt.substr(0, nomCapExt.length() - 4); //le quito el .csv			
+
+								int filas = copCubo.obtenerCoordenadaYmayorDeCapa(nomCap) + 1; //numero de filas, +1 por la cabecera
+
+								//para cabecera Y
+								nodoMatriz *auxCabY = aux->apuntaRaizDeMatriz;
+								nodoMatriz *auxCabY2 = aux->apuntaRaizDeMatriz;
+
+								while (auxCabY != NULL)
+								{
+									int op = filas - auxCabY->y;
+									if (auxCabY->y == -1)
+									{
+										op = filas + 1;
+									}
+
+									if (auxCabY->x == -1 && auxCabY->y == -1)
+									{
+										grafo += "\"(" + to_string(auxCabY->x) + "," + to_string(auxCabY->y) + ")" + "\"" + "[label=\"{<data> RAIZ }\" ,  style = filled, fillcolor = firebrick1, width = 1.5 pos=\"" + to_string(auxCabY->x) + "," + to_string(op) + "!\"];\n";
+									}
+									else{
+										grafo += "\"(" + to_string(auxCabY->x) + "," + to_string(auxCabY->y) + ")" + "\"" + "[label=\"{<data>" + auxCabY->dato + " (" + to_string(auxCabY->x) + "," + to_string(auxCabY->y) + ")}" + "\" ,  style = filled, fillcolor = firebrick1, width = 1.5 pos=\"" + to_string(auxCabY->x) + "," + to_string(op) + "!\"];\n";
+									}
+									auxCabY = auxCabY->abajo;
+								}
+
+								//relacion entre cabecera Y
+								while (auxCabY2 != NULL)
+								{
+									if (auxCabY2->abajo != NULL)
+									{
+										grafo += "\"(" + to_string(auxCabY2->x) + "," + to_string(auxCabY2->y) + ")" + "\"" + "->" + "\"(" + to_string(auxCabY2->abajo->x) + "," + to_string(auxCabY2->abajo->y) + ")" + "\" [dir=both]; \n";
+									}
+									auxCabY2 = auxCabY2->abajo;
+								}
+
+								//para cabecera X
+								nodoMatriz *auxCabX = aux->apuntaRaizDeMatriz->siguiente;
+								nodoMatriz *auxCabX2 = aux->apuntaRaizDeMatriz->siguiente;
+
+								while (auxCabX != NULL)
+								{
+									int op = filas - auxCabX->y;
+									if (auxCabX->y == -1)
+									{
+										op = filas + 1;
+									}
+									grafo += "\"(" + to_string(auxCabX->x) + "," + to_string(auxCabX->y) + ")" + "\"" + "[label=\"{<data>" + auxCabX->dato + " (" + to_string(auxCabX->x) + "," + to_string(auxCabX->y) + ")" + "}\" ,  style = filled, fillcolor = firebrick1, width = 1.5 pos=\"" + to_string(auxCabX->x * 3) + "," + to_string(op) + "!\"];\n";
+									auxCabX = auxCabX->siguiente;
+								}
+
+								//relacion entre cabecera X
+								while (auxCabX2 != NULL)
+								{
+									grafo += "\"(" + to_string(auxCabX2->anterior->x) + "," + to_string(auxCabX2->anterior->y) + ")" + "\"" + "->" + "\"(" + to_string(auxCabX2->x) + "," + to_string(auxCabX2->y) + ")" + "\" [dir=both]; \n";
+									auxCabX2 = auxCabX2->siguiente;
+								}
+
+								//Para nodos
+								nodoMatriz *auxNod = aux->apuntaRaizDeMatriz->abajo;
+
+								while (auxNod != NULL)
+								{
+									//creando nodos
+									nodoMatriz *aux2 = auxNod->siguiente;
+									nodoMatriz *aux3 = auxNod->siguiente;
+
+									while (aux2 != NULL)
+									{
+										int op = filas - aux2->y;
+										grafo += "\"(" + to_string(aux2->x) + "," + to_string(aux2->y) + ")" + "\"" + "[label=\"{<data>" + aux2->dato + " (" + to_string(aux2->x) + "," + to_string(aux2->y) + ")" + "}\" width = 1.5 pos=\"" + to_string(aux2->x * 3) + "," + to_string(op) + "!\"];\n";
+										aux2 = aux2->siguiente;
+									}
+
+									//haciendo relacion entre nodos
+									while (aux3 != NULL)
+									{
+										grafo += "\"(" + to_string(aux3->anterior->x) + "," + to_string(aux3->anterior->y) + ")" + "\"" + "->" + "\"(" + to_string(aux3->x) + "," + to_string(aux3->y) + ")" + "\" [dir=both]; \n";
+										grafo += "\"(" + to_string(aux3->x) + "," + to_string(aux3->y) + ")" + "\"" + "->" + "\"(" + to_string(aux3->arriba->x) + "," + to_string(aux3->arriba->y) + ")" + "\" [dir=both]; \n";
+
+										aux3 = aux3->siguiente;
+									}
+
+									auxNod = auxNod->abajo;
+								}
+								string nomGuardar = "REPORT_CAPAS_" + nombreDeImagen + "_FILTRO_" + nomF + "_CAPA_" + nomCap;
+								graphvizEscrituraParaCapa(nomGuardar, grafo);
+							}
+							
+							aux = aux->siguiente;
+						}
+
+					}
+				}
+			}
+
+			actual = actual->siguiente;
+		} while (actual != listFiltros.primero);
+	}
 }
 
 void ReporteGraphvizLinealizacionPorFilaTodasCapas()
@@ -3102,7 +3461,9 @@ void graphvizEscrituraParaCapa(string _nomGuardar, string _texto)
 	string dott = "neato -Tjpg Exports/" + nombreDeImagen + "/" + _nomGuardar + ".dot -o Exports/" + nombreDeImagen + "/" + _nomGuardar + ".jpg";
 	charr = (char *)dott.c_str();
 	system(charr);
-	//system("nohup display ruta_y_nombre_de_imagen_generada.png &");
+	string im = "start Exports/" + nombreDeImagen + "/" + _nomGuardar + ".jpg";
+	char* charr2 = (char *)im.c_str();
+	system(charr2);
 }
 
 void graphvizEscrituraParaCapaDesdeArbol(string _nomGuardar, string _texto, string nomImg)
@@ -3133,6 +3494,9 @@ void graphvizEscrituraParaCapaDesdeArbol(string _nomGuardar, string _texto, stri
 	string dott = "neato -Tjpg Exports/" + nomImg + "/" + _nomGuardar + ".dot -o Exports/" + nomImg + "/" + _nomGuardar + ".jpg";
 	charr = (char *)dott.c_str();
 	system(charr);
+	string im = "start Exports/" + nomImg + "/" + _nomGuardar + ".jpg";
+	char* charr2 = (char *)im.c_str();
+	system(charr2);
 }
 
 void graphvizEscrituraParaLinealizacion(string _nomGuardar, string _texto)
@@ -3161,6 +3525,9 @@ void graphvizEscrituraParaLinealizacion(string _nomGuardar, string _texto)
 	string dott = "dot -Tpng Exports/" + nombreDeImagen + "/" + _nomGuardar + ".dot -o Exports/" + nombreDeImagen + "/" + _nomGuardar + ".png";
 	charr = (char *)dott.c_str();
 	system(charr);
+	string im = "start Exports/" + nombreDeImagen + "/" + _nomGuardar + ".png";
+	char* charr2 = (char *)im.c_str();
+	system(charr2);
 }
 
 void graphvizEscrituraParaLinealizacionDesdeArbol(string _nomGuardar, string _texto, string nomImg)
@@ -3189,8 +3556,83 @@ void graphvizEscrituraParaLinealizacionDesdeArbol(string _nomGuardar, string _te
 	string dott = "dot -Tpng Exports/" + nomImg + "/" + _nomGuardar + ".dot -o Exports/" + nomImg + "/" + _nomGuardar + ".png";
 	charr = (char *)dott.c_str();
 	system(charr);
+	string im = "start Exports/" + nomImg + "/" + _nomGuardar + ".png";
+	char* charr2 = (char *)im.c_str();
+	system(charr2);
 }
 
+void graphvizEscrituraParaRecorrido(string nomRec, string _texto)
+{
+	ofstream archivo;
+	archivo.open(nomRec + ".dot", ios::out);
+
+	if (archivo.fail()){
+		printf("error");
+	}
+
+	string est = _texto;
+	archivo << "digraph G { \n";
+	archivo << "rankdir=\"LR\" \n";
+	archivo << "node [shape = record,height=.1,width=0.9]; \n";
+	archivo << est;
+	archivo << "\n }";
+	archivo.close();
+
+	char* charr;
+	string dott = "dot -Tpng " + nomRec + ".dot -o " +  nomRec + ".png";
+	charr = (char *)dott.c_str();
+	system(charr);
+	string im = nomRec+".jpg";
+	char* charr2 = (char *)im.c_str();
+	system(charr2);
+}
+
+void graphvizEscrituraParaArbol(string nomRec, string _texto)
+{
+	ofstream archivo;
+	archivo.open(nomRec + ".dot", ios::out);
+
+	if (archivo.fail()){
+		printf("error");
+	}
+
+	string est = _texto;
+	archivo << "digraph G { \n";
+	archivo << est;
+	archivo << "\n }";
+	archivo.close();
+
+	char* charr;
+	string dott = "dot -Tpng " + nomRec + ".dot -o " + nomRec + ".png";
+	charr = (char *)dott.c_str();
+	system(charr);
+	string im = nomRec + ".jpg";
+	char* charr2 = (char *)im.c_str();
+	system(charr2);
+}
+
+void graphvizEscrituraParaListaDobleFiltros(string _texto)
+{
+	ofstream archivo;
+	archivo.open("FILTROS.dot", ios::out);
+
+	if (archivo.fail()){
+		printf("error");
+	}
+
+	string est = _texto;
+	archivo << "digraph g \n";
+	archivo << "{\nnode[shape=record];\n";
+	archivo << "graph[pencolor=transparent];\n";
+	archivo << "rankdir=LR;\n";
+	archivo << "node [style=filled];\n";
+	archivo << est;
+	archivo << "\n }";
+	archivo.close();
+
+	system("dot -Tjpg FILTROS.dot -o FILTROS.jpg");
+	system("FILTROS.jpg");
+}
 
 void guardarCuboEnListaDoble(string _filtro)
 {
@@ -4131,7 +4573,7 @@ void opcionesMenu(string _opcion)
 		subMenuFiltros();
 	}
 	else if (_opcion.compare("4") == 0){
-		mostrarArbol2(arbolImg);
+		subMenuEdicionManual();
 	}
 	else if (_opcion.compare("5") == 0){
 		generarHTML();
@@ -4159,8 +4601,8 @@ void opcionesMenu(string _opcion)
 int main()
 {
 	menu();
-
-	/*int contador = 0;
+/*
+	int contador = 0;
 	insertarEnArbol(arbolImg,"ma",16,16,30,30);
 	insertarEnArbol(arbolImg, "ro", 16, 16, 30, 30);
 	insertarEnArbol(arbolImg, "gu", 16, 16, 30, 30);
@@ -4185,7 +4627,10 @@ int main()
 	else{
 		printf("encontrado");
 	}
-	InordenParaMostrarEnMenu(arbolImg);*/
+	
+	printf("\n");
+	reporteArbol(arbolImg);
+	graphvizEscrituraParaArbol("ARBOL",cadrep);*/
 
 
 	system("pause");
@@ -4422,6 +4867,65 @@ void lecturaArchivoCSV()
 	}
 }
 
+/////////////////////////////////////////////////////////////// SUB MENU EDICION MANUAL //////////////////////////////////////////////////////////////////////////////
+
+void subMenuEdicionManual()
+{
+	printf(" \n -------REPORTES------ \n");
+	printf("1. IMAGEN ORIGINAL \n");
+	printf("2. FILTROS \n");\
+	printf("\n ELIJA UNA OPCION: \n");
+	string op1;
+
+	cin >> op1;
+	if (op1.compare("1") == 0)
+	{
+		subMenuEdicionManualOp1();
+	}
+	else if (op1.compare("2") == 0){
+		subMenuEdicionManualOp2();
+	}
+	else{
+		printf("\n--> OPCION INVALIDA \n");
+	}
+}
+
+void subMenuEdicionManualOp1()
+{
+	string nc;
+	printf("\n INGRESE NOMBRE DE CAPA: \n");
+	cin >> nc;
+	int op1;
+	printf("\n INGRESE COORDENADA X: \n");
+	cin >> op1;
+	int op2;
+	printf("\n INGRESE COORDENADA Y: \n");
+	cin >> op2;
+	string rrggbb;
+	printf("\n INGRESE COLOR FORMATO RGB: \n");
+	cin >> rrggbb;
+	if (larch.buscarCoordenadasXY(nc,op1,op2)==true)
+	{
+		larch.modificarCoordenadaXY(nc, op1, op2, rrggbb);
+		//copio el cubo con la coordenada ya modificada
+		copCubo.raizCopCubo->siguiente = NULL;
+		copiaCuboDisperso();
+		string a = "Edic_Man_Orig_Coord_" + to_string(op1) + "," + to_string(op2);
+		listFiltros.insertar(a);
+		guardarCuboEnListaDoble(a); //busca el nodo y lo enlaza al cubo
+		nombreFiltroActual = a;
+
+	}
+	else{
+		printf("\n--> CAPA O COORDENADAS X,Y INEXISTENTES! \n");
+	}
+}
+
+void subMenuEdicionManualOp2()
+{
+
+}
+
 /////////////////////////////////////////////////////////////// SUB MENU REPORTES //////////////////////////////////////////////////////////////////////////////
 
 void subMenuReportes()
@@ -4446,8 +4950,10 @@ void subMenuReportes()
 		subMenuReporteOp3();
 	}
 	else if (op1.compare("4") == 0){
+		subMenuReporteOp4();
 	}
 	else if (op1.compare("5") == 0){
+		subMenuReporteOp5();
 	}
 	else{
 		printf("\n--> OPCION INVALIDA \n");
@@ -4553,5 +5059,107 @@ void subMenuReporteOp3()
 	}
 	else{
 		printf(" \n-------NO EXISTE ESA IMAGEN-------\n");
+	}
+}
+
+void subMenuReporteOp4()
+{
+	printf(" \n -------TIPOS DE RECORRIDOS------ \n");
+	printf("1. INORDER \n");
+	printf("2. POSTORDER \n");
+	printf("3. PREORDER \n");
+	printf("\n ELIJA UNA OPCION: \n");
+	string op1;
+
+	cin >> op1;
+	if (op1.compare("1") == 0)
+	{
+		reporteInorder(arbolImg);
+		string texto = listLinealizacion.textoGraphviz();
+		graphvizEscrituraParaRecorrido("RECORRIDO_INORDER", texto);
+		listLinealizacion.vaciar();
+	}
+	else if (op1.compare("2") == 0){
+		reportePreorder(arbolImg);
+		string texto = listLinealizacion.textoGraphviz();
+		graphvizEscrituraParaRecorrido("RECORRIDO_PREORDER", texto);
+		listLinealizacion.vaciar();
+	}
+	else if (op1.compare("3") == 0){
+		reportePosorder(arbolImg);
+		string texto = listLinealizacion.textoGraphviz();
+		graphvizEscrituraParaRecorrido("RECORRIDO_POSORDER", texto);
+		listLinealizacion.vaciar();
+	}
+	else{
+		printf("\n--> OPCION INVALIDA \n");
+	}
+}
+
+void subMenuReporteOp5()
+{
+	printf(" \n -------TIPO DE REPORTE------ \n");
+	printf("1. REPORTE DE TODOS LOS FILTROS \n");
+	printf("2. REPORTE DE FILTRO INDIVIDUAL \n");
+	printf("\n ELIJA UNA OPCION: \n");
+	string op1;
+
+	cin >> op1;
+	if (op1.compare("1") == 0)
+	{
+		string rep = listFiltros.reporteFiltros();
+		graphvizEscrituraParaListaDobleFiltros(rep);
+	}
+	else if (op1.compare("2") == 0){
+		cout << listFiltros.filtrosAplicados() << endl;
+
+		if (listFiltros.primero!=NULL)//si hay filtros
+		{
+			string nomfil;
+			printf(" \n--> INGRESE NOMBRE DEL FILTRO \n");
+			cin >> nomfil;
+			if (listFiltros.existeFiltro(nomfil)==true)//si el filtro se encontro
+			{
+				string oppf;
+				printf(" \n -------OPCIONES------ \n");
+				printf("1. TODAS LAS CAPAS \n");
+				printf("2. CAPA ESPECIFICA \n");
+				printf(" \n--> ELIJA UNA OPCION \n");
+				cin >> oppf;
+				if (oppf.compare("1")==0)
+				{
+					ReporteGraphvizTodasLasCapasListaFiltros(nomfil);
+				}
+				else if (oppf.compare("2") == 0){
+					int numcap;
+					bool bandeCap = true;
+					do
+					{
+						printf(" \n--> INGRESE NUMERO DE CAPA \n");
+						cin >> numcap;
+
+						if (listFiltros.existeCapaEnFiltroEspecifico(nomfil,numcap) == true) //si existe la capa ingresada
+						{
+							ReporteGraphvizCapaEspecificaListaFiltros(nomfil, numcap);
+							bandeCap = false;
+						}
+						else{
+							printf(" \n-------NO EXISTE LA CAPA-------\n");
+						}
+
+					} while (bandeCap != false);
+				}
+				else{
+					printf("\n--> OPCION INVALIDA \n");
+				}
+			}
+			else{
+				printf(" \n-------FILTRO NO ENCONTRADO-------\n");
+			}
+		}
+
+	}
+	else{
+		printf("\n--> OPCION INVALIDA \n");
 	}
 }
