@@ -2872,7 +2872,7 @@ void collage(int xRep, int yRep)
 								int posX = aux3->x;
 								int posY = aux3->y;
 								int tamimageParaX = config[0];
-								int tamimageParaY = config[0];
+								int tamimageParaY = config[1];
 
 								//Si es mayor que uno modificara (repeticiones en x)
 								if (xRep>1)
@@ -3681,6 +3681,7 @@ void guardarConfig(string _archivo)
 	int bande = 1;
 	int linealec = 0; //me dira en que linea me encuentro
 	int tam = 0;
+	string conf = "";
 	string archivo = "";
 	try{
 		//empezara a leer el archivo.csv
@@ -3702,7 +3703,23 @@ void guardarConfig(string _archivo)
 					{
 						int a = linealec - 1; //guardara en el indice (linea que va menos 1)
 						tam = atoi(dato.c_str()); //convierte el valor a entero
-						config[a] = tam; //lo asigna al vector
+						
+						if (strstr(conf.c_str(), "mage_width")) // no pongo i, por si en el archivo viene con mayuscula
+						{
+							config[0] = tam; //lo asigna al vector
+						}
+						else if (strstr(conf.c_str(), "mage_height")){
+							config[1] = tam;
+						}
+						else if (strstr(conf.c_str(), "ixel_width")){
+							config[2] = tam;
+						}
+						else if (strstr(conf.c_str(), "ixel_height")){
+							config[3] = tam;
+						}						
+					}
+					else{
+						conf = dato;
 					}
 					bande++;
 				}
@@ -4138,7 +4155,7 @@ void generarCSS()
 		}
 
 		double a = (double)pixel_width;
-		double b = (double)16;
+		double b = (double)image_width;
 		double pix = a / b;
 
 		cadena += ".pixel{ \n";
