@@ -44,6 +44,7 @@ void subMenuReportesOp2();
 void subMenuReporteOp3();
 void subMenuReporteOp4();
 void subMenuReporteOp5();
+void subMenuExportarImagen();
 
 string rgbR(int num);
 string rgbG(int num);
@@ -1138,6 +1139,7 @@ void listaArchivos::modificarCoordenadaXY(string capa, int x, int y, string rgb)
 }
 
 
+
 ///////////////////////////////////////////////////////// CLASE NODO COPIA CUBO /////////////////////////////////////////////////////////////////
 
 class NodoCopiaCubo
@@ -1788,6 +1790,169 @@ nodoArbol::nodoArbol(string n, int iw, int ih, int pw, int ph)
 	this->pixHeight = ph;
 }
 
+//////////////////////////////////////////////////////////////////// DIMENSION COLLAGE /////////////////////////////////////////////////////////////////
+class nodoDimensioCollage{
+public:
+	nodoDimensioCollage *siguiente;
+	string nomFilt;
+	int pixHTML;
+	int wcss;
+	int hcss;
+	int pwcss;
+	int phcss;
+	nodoDimensioCollage(string,int,int,int,int,int);
+
+};
+
+nodoDimensioCollage::nodoDimensioCollage(string a, int b, int c, int d, int e, int f)
+{
+	this->siguiente = NULL;
+	this->nomFilt = a;
+	this->pixHTML = b;
+	this->wcss = c;
+	this->hcss = d;
+	this->pwcss = e;
+	this->phcss = f;
+}
+
+class DimensionCollage{
+public:
+	nodoDimensioCollage *raiz;
+	DimensionCollage();
+	void insertar(string,int,int,int,int,int);
+	void vaciar();
+	int extraerPixHTML(string);
+	int extraerwcss(string);
+	int extraerhcss(string);
+	int extraerpwcss(string);
+	int extraerphcss(string);
+
+};
+
+DimensionCollage::DimensionCollage(){
+	this->raiz = new nodoDimensioCollage("RAIZ",-1,-1,-1,-1,-1);
+}
+
+void DimensionCollage::insertar(string a, int b, int c, int d, int e, int f)
+{
+	nodoDimensioCollage *nuevo = new nodoDimensioCollage(a, b, c, d, e, f);
+
+	if (this->raiz->siguiente==NULL) //si no hay nodos
+	{
+		this->raiz->siguiente = nuevo;
+	}
+	else{
+		nuevo->siguiente = this->raiz->siguiente;
+		this->raiz->siguiente = nuevo;
+	}
+}
+
+void DimensionCollage::vaciar()
+{
+	this->raiz->siguiente = NULL;
+}
+
+int DimensionCollage::extraerPixHTML(string a)
+{
+	int ret = 0;
+
+	if (this->raiz->siguiente!=NULL)
+	{
+		nodoDimensioCollage *temp = this->raiz;
+
+		while (temp!=NULL)
+		{
+			if (temp->nomFilt.compare(a)==0) //cuando lo encuentre
+			{
+				ret = temp->pixHTML;
+			}
+			temp = temp->siguiente;
+		}
+	}
+	return ret;
+}
+
+int DimensionCollage::extraerwcss(string a)
+{
+	int ret = 0;
+
+	if (this->raiz->siguiente != NULL)
+	{
+		nodoDimensioCollage *temp = this->raiz;
+
+		while (temp != NULL)
+		{
+			if (temp->nomFilt.compare(a) == 0) //cuando lo encuentre
+			{
+				ret = temp->wcss;
+			}
+			temp = temp->siguiente;
+		}
+	}
+	return ret;
+}
+
+int DimensionCollage::extraerhcss(string a)
+{
+	int ret = 0;
+
+	if (this->raiz->siguiente != NULL)
+	{
+		nodoDimensioCollage *temp = this->raiz;
+
+		while (temp != NULL)
+		{
+			if (temp->nomFilt.compare(a) == 0) //cuando lo encuentre
+			{
+				ret = temp->hcss;
+			}
+			temp = temp->siguiente;
+		}
+	}
+	return ret;
+}
+
+int DimensionCollage::extraerpwcss(string a)
+{
+	int ret = 0;
+
+	if (this->raiz->siguiente != NULL)
+	{
+		nodoDimensioCollage *temp = this->raiz;
+
+		while (temp != NULL)
+		{
+			if (temp->nomFilt.compare(a) == 0) //cuando lo encuentre
+			{
+				ret = temp->pwcss;
+			}
+			temp = temp->siguiente;
+		}
+	}
+	return ret;
+}
+
+int DimensionCollage::extraerphcss(string a)
+{
+	int ret = 0;
+
+	if (this->raiz->siguiente != NULL)
+	{
+		nodoDimensioCollage *temp = this->raiz;
+
+		while (temp != NULL)
+		{
+			if (temp->nomFilt.compare(a) == 0) //cuando lo encuentre
+			{
+				ret = temp->phcss;
+			}
+			temp = temp->siguiente;
+		}
+	}
+	return ret;
+}
+
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // ------------------------------------> GLOBALES <----------------------------------------
@@ -1798,7 +1963,8 @@ Pila miPila; // (ayuda para filtros en ejes)
 listaDobCircuFiltros listFiltros;
 listaLinealizacion listLinealizacion;
 nodoArbol *arbolImg;
-imageOriginal listImageOriginal;
+imageOriginal listImageOriginal; //obsoleto
+DimensionCollage listDimensionCollage;
 
 //////////////////////////////////////////////////////////////////// OPERACIONES EN ARBOL /////////////////////////////////////////////////////////////////
 
@@ -1941,9 +2107,10 @@ void seleccionarImagen(nodoArbol *&arbolImg, string nomIMG)
 	}
 	else if ((arbolImg->nomImg.compare(nomIMG)) == 0){
 		larch.raizArch->siguiente = arbolImg->cuboOriginal;
-		nombreDeImagen = arbolImg->nomImg;
-		nombreFiltroActual = "Original";
-		//cout << arbolImg->cuboImg->nomArchivo;		
+		config[0] = arbolImg->imgWidth;
+		config[1] = arbolImg->imgHeight;
+		config[2] = arbolImg->pixWidth;
+		config[3] = arbolImg->pixHeight;
 
 	}
 	else if (((nomIMG)<(arbolImg->nomImg)) == 1){
@@ -2419,11 +2586,11 @@ void reporteArbol(nodoArbol *arbolImg)
 		cout << arbolImg->nomImg << endl;
 		if (arbolImg->izquierdo != NULL)
 		{
-			cadrep += arbolImg->nomImg + "->" + arbolImg->izquierdo->nomImg + "\n";
+			cadrep += "\"" + arbolImg->nomImg + ", W: " + to_string(arbolImg->imgWidth) + ", H: " + to_string(arbolImg->imgHeight) + ", PW: " + to_string(arbolImg->pixWidth) + "px, PH: " + to_string(arbolImg->pixHeight) + "px\"" + "->" + "\"" + arbolImg->izquierdo->nomImg + ", W: " + to_string(arbolImg->izquierdo->imgWidth) + ", H: " + to_string(arbolImg->izquierdo->imgHeight) + ", PW: " + to_string(arbolImg->izquierdo->pixWidth) + "px, PH: " + to_string(arbolImg->izquierdo->pixHeight) + "px\"" + "\n";
 		}
 		if (arbolImg->derecho!=NULL)
 		{
-			cadrep += arbolImg->nomImg + "->" + arbolImg->derecho->nomImg + "\n";
+			cadrep += "\"" + arbolImg->nomImg + ", W: " + to_string(arbolImg->imgWidth) + ", H: " + to_string(arbolImg->imgHeight) + ", PW: " + to_string(arbolImg->pixWidth) + "px, PH: " + to_string(arbolImg->pixHeight) + "px\"" + "->" + "\"" + arbolImg->derecho->nomImg + ", W: " + to_string(arbolImg->derecho->imgWidth) + ", H: " + to_string(arbolImg->derecho->imgHeight) + ", PW: " + to_string(arbolImg->derecho->pixWidth) + "px, PH: " + to_string(arbolImg->derecho->pixHeight) + "px\"" + "\n";
 		}		
 		reporteArbol(arbolImg->derecho);
 		reporteArbol(arbolImg->izquierdo);
@@ -3582,7 +3749,7 @@ void graphvizEscrituraParaRecorrido(string nomRec, string _texto)
 	string dott = "dot -Tpng " + nomRec + ".dot -o " +  nomRec + ".png";
 	charr = (char *)dott.c_str();
 	system(charr);
-	string im = nomRec+".jpg";
+	string im ="start " + nomRec+".jpg";
 	char* charr2 = (char *)im.c_str();
 	system(charr2);
 }
@@ -3606,7 +3773,7 @@ void graphvizEscrituraParaArbol(string nomRec, string _texto)
 	string dott = "dot -Tpng " + nomRec + ".dot -o " + nomRec + ".png";
 	charr = (char *)dott.c_str();
 	system(charr);
-	string im = nomRec + ".jpg";
+	string im ="start " + nomRec + ".png";
 	char* charr2 = (char *)im.c_str();
 	system(charr2);
 }
@@ -3631,7 +3798,7 @@ void graphvizEscrituraParaListaDobleFiltros(string _texto)
 	archivo.close();
 
 	system("dot -Tjpg FILTROS.dot -o FILTROS.jpg");
-	system("FILTROS.jpg");
+	system("start FILTROS.jpg");
 }
 
 void guardarCuboEnListaDoble(string _filtro)
@@ -3642,17 +3809,36 @@ void guardarCuboEnListaDoble(string _filtro)
 
 		do
 		{
-			if (actual->nomFiltro==_filtro) //cuando encuentre el nombre del filtro
+			if (actual->nomFiltro.compare(_filtro)==0) //cuando encuentre el nombre del filtro
 			{
 				if (actual->apuntaCopiaCubo==NULL) // si aun no hay cubo en ese nodo
 				{
-					actual->apuntaCopiaCubo = copCubo.raizCopCubo; //se enlaza o guarda en el nodo el cubo
+					actual->apuntaCopiaCubo = copCubo.raizCopCubo->siguiente; //se enlaza o guarda en el nodo el cubo
 					break;
 				}
 				else{
 					printf("\n--> YA APLICO ESTE FILTRO A LA IMAGEN!\n");
 				}
 				
+			}
+			actual = actual->siguiente;
+
+		} while (actual != listFiltros.primero);
+	}
+}
+
+void copiarFiltroACuboCopia(string filtro)
+{
+	if (listFiltros.primero != NULL)
+	{
+		nodoFiltro *actual = listFiltros.primero;
+
+		do
+		{
+			if (actual->nomFiltro.compare(filtro)==0) //cuando encuentre el nombre del filtro
+			{
+					copCubo.raizCopCubo->siguiente=actual->apuntaCopiaCubo; //se enlaza o guarda en el nodo el cubo
+					break;
 			}
 			actual = actual->siguiente;
 
@@ -4576,13 +4762,14 @@ void opcionesMenu(string _opcion)
 		subMenuEdicionManual();
 	}
 	else if (_opcion.compare("5") == 0){
-		generarHTML();
-		generarCSS();
-		//restaurando datos
-		arrDimImage[0] = 0;
-		banderaMosaico = false;
-		copCubo.raizCopCubo->siguiente = NULL;
-		copiaCuboDisperso();
+		subMenuExportarImagen();
+		//generarHTML();
+		//generarCSS();
+		////restaurando datos
+		//arrDimImage[0] = 0;
+		//banderaMosaico = false;
+		//copCubo.raizCopCubo->siguiente = NULL;
+		//copiaCuboDisperso();
 	}
 	else if (_opcion.compare("6") == 0){
 		subMenuReportes();
@@ -4601,6 +4788,13 @@ void opcionesMenu(string _opcion)
 int main()
 {
 	menu();
+
+	/*string a = "Mosaico";
+	if (strstr(a.c_str(),"Mosaico"))
+	{
+		printf("yes");
+	}*/
+
 /*
 	int contador = 0;
 	insertarEnArbol(arbolImg,"ma",16,16,30,30);
@@ -4648,7 +4842,9 @@ void subMenuInsertarImagen()
 	nombreFiltroActual = "Original";
 	a += ".csv";	
 	CrearCuboDisperso(a);
+	listDimensionCollage.vaciar();
 	copCubo.vaciar();
+	listFiltros.vaciar();
 	copiaCuboDisperso();
 
 }
@@ -4670,9 +4866,12 @@ void subMenuSeleccionarImagen()
 		cin >> a;
 		if ((buscarEnArbol(arbolImg, a))==true)
 		{
+			nombreDeImagen = a;
 			larch.raizArch->siguiente = NULL;
 			seleccionarImagen(arbolImg, a);
+			listDimensionCollage.vaciar();
 			copCubo.vaciar();
+			listFiltros.vaciar();
 			copiaCuboDisperso();
 		}else{
 			printf(" \n-------NO EXISTE ESA IMAGEN-------\n");
@@ -4724,6 +4923,8 @@ void subsubMenuFiltrosOp1() // Imagen completa
 		listFiltros.insertar("Negativo_En_Todas_Las_Capas"); //se guarda primero en la lista doble
 		guardarCuboEnListaDoble("Negativo_En_Todas_Las_Capas"); //busca el nodo y lo enlaza al cubo
 		nombreFiltroActual = "Negativo_En_Todas_Las_Capas";
+		copCubo.raizCopCubo->siguiente = NULL;
+		copiaCuboDisperso();
 	}
 	else if (op2.compare("2") == 0)
 	{
@@ -4731,6 +4932,8 @@ void subsubMenuFiltrosOp1() // Imagen completa
 		listFiltros.insertar("GrayScale_En_Todas_Las_Capas"); //se guarda primero en la lista doble
 		guardarCuboEnListaDoble("GrayScale_En_Todas_Las_Capas"); //busca el nodo y lo enlaza al cubo
 		nombreFiltroActual = "GrayScale_En_Todas_Las_Capas";
+		copCubo.raizCopCubo->siguiente = NULL;
+		copiaCuboDisperso();
 	}
 	else if (op2.compare("3") == 0)
 	{
@@ -4738,6 +4941,8 @@ void subsubMenuFiltrosOp1() // Imagen completa
 		listFiltros.insertar("Espejo_En_Eje_X"); //se guarda primero en la lista doble
 		guardarCuboEnListaDoble("Espejo_En_Eje_X"); //busca el nodo y lo enlaza al cubo
 		nombreFiltroActual = "Espejo_En_Eje_X";
+		copCubo.raizCopCubo->siguiente = NULL;
+		copiaCuboDisperso();
 	}
 	else if (op2.compare("4") == 0)
 	{
@@ -4745,6 +4950,8 @@ void subsubMenuFiltrosOp1() // Imagen completa
 		listFiltros.insertar("Espejo_En_Eje_Y"); //se guarda primero en la lista doble
 		guardarCuboEnListaDoble("Espejo_En_Eje_Y"); //busca el nodo y lo enlaza al cubo
 		nombreFiltroActual = "Espejo_En_Eje_Y";
+		copCubo.raizCopCubo->siguiente = NULL;
+		copiaCuboDisperso();
 	}
 	else if (op2.compare("5") == 0)
 	{
@@ -4753,6 +4960,8 @@ void subsubMenuFiltrosOp1() // Imagen completa
 		listFiltros.insertar("Espejo_En_Ambos_Ejex"); //se guarda primero en la lista doble
 		guardarCuboEnListaDoble("Espejo_En_Ambos_Ejex"); //busca el nodo y lo enlaza al cubo
 		nombreFiltroActual = "Espejo_En_Ambos_Ejex";
+		copCubo.raizCopCubo->siguiente = NULL;
+		copiaCuboDisperso();
 	}
 	else if (op2.compare("6") == 0)
 	{
@@ -4772,19 +4981,22 @@ void subsubMenuFiltrosOp1() // Imagen completa
 		int opp = image_width * image_height;
 		int opp2 = opp*ingx;
 		int opp3 = opp2*ingy;
-		arrDimImage[0] = opp3;
+		//arrDimImage[0] = opp3;
 		//redimensiona para ancho alto de imagen, ancho alto de pixel CSS
 		int opp4 = image_width*ingx;
 		int opp5 = image_height * ingy;
-		arrDimImageCss[0] = opp4;
-		arrDimImageCss[1] = opp5;
-		arrDimImageCss[2] = pixel_width;
-		arrDimImageCss[3] = pixel_height;
+		//arrDimImageCss[0] = opp4;
+		//arrDimImageCss[1] = opp5;
+		//arrDimImageCss[2] = pixel_width;
+		//arrDimImageCss[3] = pixel_height;
 		//me guarda en la lista doble
 		string a = "Collage_" + to_string(ingx) + "x" + to_string(ingy);
 		listFiltros.insertar(a);
 		guardarCuboEnListaDoble(a); //busca el nodo y lo enlaza al cubo
-		nombreFiltroActual = a;
+		//nombreFiltroActual = a;
+		listDimensionCollage.insertar(a, opp3, opp4, opp5, pixel_width, pixel_height);
+		copCubo.raizCopCubo->siguiente = NULL;
+		copiaCuboDisperso();
 		
 	}
 	else if (op2.compare("7") == 0)
@@ -4792,8 +5004,10 @@ void subsubMenuFiltrosOp1() // Imagen completa
 		mosaico();
 		listFiltros.insertar("Mosaico");
 		guardarCuboEnListaDoble("Mosaico"); //busca el nodo y lo enlaza al cubo
-		banderaMosaico = true;
-		nombreFiltroActual = "Mosaico";
+		//banderaMosaico = true;
+		//nombreFiltroActual = "Mosaico";
+		copCubo.raizCopCubo->siguiente = NULL;
+		copiaCuboDisperso();
 	}
 	else{
 		printf("\n--> OPCION INVALIDA \n");
@@ -4908,12 +5122,12 @@ void subMenuEdicionManualOp1()
 	{
 		larch.modificarCoordenadaXY(nc, op1, op2, rrggbb);
 		//copio el cubo con la coordenada ya modificada
-		copCubo.raizCopCubo->siguiente = NULL;
-		copiaCuboDisperso();
-		string a = "Edic_Man_Orig_Coord_" + to_string(op1) + "," + to_string(op2);
-		listFiltros.insertar(a);
-		guardarCuboEnListaDoble(a); //busca el nodo y lo enlaza al cubo
-		nombreFiltroActual = a;
+		//copCubo.raizCopCubo->siguiente = NULL;
+		//copiaCuboDisperso();
+		//string a = "Edic_Man_Orig_Coord_" + to_string(op1) + "," + to_string(op2);
+		//listFiltros.insertar(a);
+		//guardarCuboEnListaDoble(a); //busca el nodo y lo enlaza al cubo
+		//nombreFiltroActual = a;
 
 	}
 	else{
@@ -4942,6 +5156,9 @@ void subMenuReportes()
 	cin >> op1;
 	if (op1.compare("1") == 0)
 	{
+		cadrep = "";
+		reporteArbol(arbolImg);
+		graphvizEscrituraParaArbol("ARBOL", cadrep);
 	}
 	else if (op1.compare("2") == 0){
 		subMenuReportesOp2();
@@ -5162,4 +5379,84 @@ void subMenuReporteOp5()
 	else{
 		printf("\n--> OPCION INVALIDA \n");
 	}
+}
+
+/////////////////////////////////////////////////////////////// SUB MENU EXPORTAR IMAGEN //////////////////////////////////////////////////////////////////////////////
+
+void subMenuExportarImagen()
+{
+	printf(" \n -------EXPORTAR IMAGEN------ \n");
+	printf("0. Original \n");
+	cout << listFiltros.filtrosAplicados() << endl;
+	printf("\n INGRESAR NOMBRE DE IMAGEN A EXPORTAR: \n");
+	string nimg;
+	cin >> nimg;
+	if (nimg.compare("Original")==0) //si es la original
+	{
+		copCubo.raizCopCubo->siguiente = NULL;
+		copiaCuboDisperso();
+		nombreFiltroActual = nimg;
+		generarHTML();
+		generarCSS();
+		//restaurando datos
+		arrDimImage[0] = 0;
+		banderaMosaico = false;
+		copCubo.raizCopCubo->siguiente = NULL;
+		copiaCuboDisperso();
+	}
+	else{
+		if (listFiltros.existeFiltro(nimg)==true) //si existe el filtro
+		{
+			if (strstr(nimg.c_str(), "Mosaico")) //si es mosaico
+			{
+				banderaMosaico = true;
+				nombreFiltroActual = nimg;
+				copiarFiltroACuboCopia(nimg);
+				generarHTML();
+				generarCSS();
+				//restaurando datos
+				arrDimImage[0] = 0;
+				banderaMosaico = false;
+				copCubo.raizCopCubo->siguiente = NULL;
+				copiaCuboDisperso();
+			}
+			else if (strstr(nimg.c_str(), "Collage")) //si es collage
+			{
+				int pixhtmll = listDimensionCollage.extraerPixHTML(nimg);
+				int wwcss = listDimensionCollage.extraerwcss(nimg);
+				int hhcss = listDimensionCollage.extraerhcss(nimg);
+				int ppwwcss = listDimensionCollage.extraerpwcss(nimg);
+				int pphhcss = listDimensionCollage.extraerphcss(nimg);
+				arrDimImage[0] = pixhtmll;
+				arrDimImageCss[0] = wwcss;
+				arrDimImageCss[1] = hhcss;
+				arrDimImageCss[2] = ppwwcss;
+				arrDimImageCss[3] = pphhcss;
+				nombreFiltroActual = nimg;
+				copiarFiltroACuboCopia(nimg);
+				generarHTML();
+				generarCSS();
+				//restaurando datos
+				arrDimImage[0] = 0;
+				banderaMosaico = false;
+				copCubo.raizCopCubo->siguiente = NULL;
+				copiaCuboDisperso();
+			}
+			else{
+				nombreFiltroActual = nimg;
+				copiarFiltroACuboCopia(nimg);
+				generarHTML();
+				generarCSS();
+				//restaurando datos
+				arrDimImage[0] = 0;
+				banderaMosaico = false;
+				copCubo.raizCopCubo->siguiente = NULL;
+				copiaCuboDisperso();
+			}
+		}
+		else{
+			printf("\n NO EXISTE FILTRO! \n");
+		}
+	}
+
 }
