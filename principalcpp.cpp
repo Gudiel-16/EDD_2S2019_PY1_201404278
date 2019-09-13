@@ -1387,6 +1387,8 @@ public:
 	string reporteFiltros();
 	bool existeFiltro(string);
 	bool existeCapaEnFiltroEspecifico(string,int);
+	bool existeCoordEnCapaDeFiltroEspecifico(string,string,int,int);
+	void modificarCoordendasXY(string, string, int, int, string);
 	void imprimir();
 	void vaciar();
 };
@@ -1567,6 +1569,120 @@ bool listaDobCircuFiltros::existeCapaEnFiltroEspecifico(string nomF, int cap)
 	}
 
 	return encontrado;
+}
+
+bool listaDobCircuFiltros::existeCoordEnCapaDeFiltroEspecifico(string nomf, string nomcap, int _x, int _y)
+{
+	bool encontrado = false;
+
+	if (this->primero != NULL)
+	{
+		nodoFiltro *actual = this->primero;
+		do
+		{			
+			if (actual->nomFiltro.compare(nomf)==0) //cuando encuentre nombre de filtro
+			{
+				if (actual->apuntaCopiaCubo != NULL)
+				{
+					NodoCopiaCubo *aux = actual->apuntaCopiaCubo;
+
+					if (aux != NULL)
+					{
+						while (aux != NULL) //me recorre la lista copia cubo en este sentido -> -> ->
+						{
+							string nomCapExt = aux->nomArchivo; //captura el nombre de la capa
+							string nomCapp = nomCapExt.substr(0, nomCapExt.length() - 4); //le quito el .csv	
+
+							if (nomCapp.compare(nomcap)==0) //si encuentra la capa
+							{
+								nodoMatriz *aux2 = aux->apuntaRaizDeMatriz; //se posiciona en la raiz de la matriz
+
+								while (aux2 != NULL) //me recorre la matriz para abajo
+								{
+									nodoMatriz *aux3 = aux2; //aux2 va hacia abajo, entonces aux3=aux2->siguiente para recorrer toda una fila
+
+									while (aux3 != NULL) //me recorre cada fila de la matriz en este sentido -> -> ->
+									{
+										if (aux3->x==_x && aux3->y==_y) //si encuentra las coordenadas
+										{
+											encontrado = true;
+										}
+
+										aux3 = aux3->siguiente;
+									}
+
+									aux2 = aux2->abajo;
+								}
+							}
+
+							aux = aux->siguiente;
+						}
+
+					}
+
+				}
+			}
+
+			actual = actual->siguiente;
+		} while (actual != primero);
+	}
+
+	return encontrado;
+}
+
+void listaDobCircuFiltros::modificarCoordendasXY(string nomf, string nomcap, int _x, int _y, string rgb)
+{
+	if (this->primero != NULL)
+	{
+		nodoFiltro *actual = this->primero;
+		do
+		{
+			if (actual->nomFiltro.compare(nomf) == 0) //cuando encuentre nombre de filtro
+			{
+				if (actual->apuntaCopiaCubo != NULL)
+				{
+					NodoCopiaCubo *aux = actual->apuntaCopiaCubo;
+
+					if (aux != NULL)
+					{
+						while (aux != NULL) //me recorre la lista copia cubo en este sentido -> -> ->
+						{
+							string nomCapExt = aux->nomArchivo; //captura el nombre de la capa
+							string nomCapp = nomCapExt.substr(0, nomCapExt.length() - 4); //le quito el .csv	
+
+							if (nomCapp.compare(nomcap) == 0) //si encuentra la capa
+							{
+								nodoMatriz *aux2 = aux->apuntaRaizDeMatriz; //se posiciona en la raiz de la matriz
+
+								while (aux2 != NULL) //me recorre la matriz para abajo
+								{
+									nodoMatriz *aux3 = aux2; //aux2 va hacia abajo, entonces aux3=aux2->siguiente para recorrer toda una fila
+
+									while (aux3 != NULL) //me recorre cada fila de la matriz en este sentido -> -> ->
+									{
+										if (aux3->x == _x && aux3->y == _y) //si encuentra las coordenadas
+										{
+											aux3->dato = rgb;
+										}
+
+										aux3 = aux3->siguiente;
+									}
+
+									aux2 = aux2->abajo;
+								}
+							}
+
+							aux = aux->siguiente;
+						}
+
+					}
+
+				}
+			}
+
+			actual = actual->siguiente;
+		} while (actual != primero);
+	}
 }
 
 //////////////////////////////////////////////////////////////////// LISTA PARA LINEALIZACION /////////////////////////////////////////////////////////////////
@@ -2586,11 +2702,11 @@ void reporteArbol(nodoArbol *arbolImg)
 		cout << arbolImg->nomImg << endl;
 		if (arbolImg->izquierdo != NULL)
 		{
-			cadrep += "\"" + arbolImg->nomImg + ", W: " + to_string(arbolImg->imgWidth) + ", H: " + to_string(arbolImg->imgHeight) + ", PW: " + to_string(arbolImg->pixWidth) + "px, PH: " + to_string(arbolImg->pixHeight) + "px\"" + "->" + "\"" + arbolImg->izquierdo->nomImg + ", W: " + to_string(arbolImg->izquierdo->imgWidth) + ", H: " + to_string(arbolImg->izquierdo->imgHeight) + ", PW: " + to_string(arbolImg->izquierdo->pixWidth) + "px, PH: " + to_string(arbolImg->izquierdo->pixHeight) + "px\"" + "\n";
+			cadrep += "\"" + arbolImg->nomImg + " \n W: " + to_string(arbolImg->imgWidth) + ", H: " + to_string(arbolImg->imgHeight) + " \n PW: " + to_string(arbolImg->pixWidth) + "px, PH: " + to_string(arbolImg->pixHeight) + "px\"" + "->" + "\"" + arbolImg->izquierdo->nomImg + " \n W: " + to_string(arbolImg->izquierdo->imgWidth) + ", H: " + to_string(arbolImg->izquierdo->imgHeight) + " \n PW: " + to_string(arbolImg->izquierdo->pixWidth) + "px, PH: " + to_string(arbolImg->izquierdo->pixHeight) + "px\"" + "\n";
 		}
 		if (arbolImg->derecho!=NULL)
 		{
-			cadrep += "\"" + arbolImg->nomImg + ", W: " + to_string(arbolImg->imgWidth) + ", H: " + to_string(arbolImg->imgHeight) + ", PW: " + to_string(arbolImg->pixWidth) + "px, PH: " + to_string(arbolImg->pixHeight) + "px\"" + "->" + "\"" + arbolImg->derecho->nomImg + ", W: " + to_string(arbolImg->derecho->imgWidth) + ", H: " + to_string(arbolImg->derecho->imgHeight) + ", PW: " + to_string(arbolImg->derecho->pixWidth) + "px, PH: " + to_string(arbolImg->derecho->pixHeight) + "px\"" + "\n";
+			cadrep += "\"" + arbolImg->nomImg + " \n W: " + to_string(arbolImg->imgWidth) + ", H: " + to_string(arbolImg->imgHeight) + " \n PW: " + to_string(arbolImg->pixWidth) + "px, PH: " + to_string(arbolImg->pixHeight) + "px\"" + "->" + "\"" + arbolImg->derecho->nomImg + " \n W: " + to_string(arbolImg->derecho->imgWidth) + ", H: " + to_string(arbolImg->derecho->imgHeight) + " \n PW: " + to_string(arbolImg->derecho->pixWidth) + "px, PH: " + to_string(arbolImg->derecho->pixHeight) + "px\"" + "\n";
 		}		
 		reporteArbol(arbolImg->derecho);
 		reporteArbol(arbolImg->izquierdo);
@@ -4795,36 +4911,21 @@ int main()
 		printf("yes");
 	}*/
 
-/*
-	int contador = 0;
-	insertarEnArbol(arbolImg,"ma",16,16,30,30);
-	insertarEnArbol(arbolImg, "ro", 16, 16, 30, 30);
-	insertarEnArbol(arbolImg, "gu", 16, 16, 30, 30);
-	insertarEnArbol(arbolImg, "ab", 16, 16, 30, 30);
-	insertarEnArbol(arbolImg, "cw", 16, 16, 30, 30);
-	insertarEnArbol(arbolImg, "na", 16, 16, 30, 30);
-	insertarEnArbol(arbolImg, "st", 16, 16, 30, 30);
-	mostrarArbol(arbolImg, contador);
-	printf("\n");
-	if (buscarEnArbol(arbolImg, "cwa")==false)
-	{
-		printf("No encontrado");
-	}
-	else{
-		printf("encontrado");
-	}
-	printf("\n");
-	if (buscarEnArbol(arbolImg, "ro") == false)
-	{
-		printf("No encontrado");
-	}
-	else{
-		printf("encontrado");
-	}
-	
-	printf("\n");
-	reporteArbol(arbolImg);
-	graphvizEscrituraParaArbol("ARBOL",cadrep);*/
+
+	//int contador = 0;
+	//insertarEnArbol(arbolImg,"ma",16,16,30,30);
+	//insertarEnArbol(arbolImg, "ro", 16, 16, 30, 30);
+	//insertarEnArbol(arbolImg, "gu", 16, 16, 30, 30);
+	//insertarEnArbol(arbolImg, "ab", 16, 16, 30, 30);
+	//insertarEnArbol(arbolImg, "cw", 16, 16, 30, 30);
+	//insertarEnArbol(arbolImg, "na", 16, 16, 30, 30);
+	//insertarEnArbol(arbolImg, "st", 16, 16, 30, 30);
+	//insertarEnArbol(arbolImg, "aa", 16, 16, 30, 30);
+	//mostrarArbol(arbolImg, contador);
+	//printf("\n");
+
+	//reporteArbol(arbolImg);
+	//graphvizEscrituraParaArbol("ARBOL",cadrep);
 
 
 	system("pause");
@@ -5137,6 +5238,31 @@ void subMenuEdicionManualOp1()
 
 void subMenuEdicionManualOp2()
 {
+	cout << listFiltros.filtrosAplicados() << endl;
+
+	string nf;
+	printf("\n INGRESE NOMBRE DE FILTRO: \n");
+	cin >> nf;
+	string nc;
+	printf("\n INGRESE NOMBRE DE CAPA: \n");
+	cin >> nc;
+	int op1;
+	printf("\n INGRESE COORDENADA X: \n");
+	cin >> op1;
+	int op2;
+	printf("\n INGRESE COORDENADA Y: \n");
+	cin >> op2;
+	string rrggbb;
+	printf("\n INGRESE COLOR FORMATO RGB: \n");
+	cin >> rrggbb;
+	if (listFiltros.existeCoordEnCapaDeFiltroEspecifico(nf,nc,op1,op2) == true)
+	{
+		listFiltros.modificarCoordendasXY(nf, nc, op1, op2, rrggbb);
+	}
+	else{
+		printf("\n--> FILTRO, CAPA O COORDENADAS X,Y INEXISTENTES! \n");
+	}
+		
 
 }
 
