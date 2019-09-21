@@ -918,7 +918,7 @@ void listaArchivos::nuevaMatriz(int _capa, string _archivo)
 
 					//empezara a leer el archivo.csv
 					ifstream lectura;
-					lectura.open(_archivo, ios::in);
+					lectura.open( nombreDeImagen + "/" + _archivo, ios::in); //seria: LUIGUI/botaypelo.csv
 
 					int linealec = 0;
 
@@ -2704,10 +2704,16 @@ void reporteArbol(nodoArbol *arbolImg)
 		{
 			cadrep += "\"" + arbolImg->nomImg + " \n W: " + to_string(arbolImg->imgWidth) + ", H: " + to_string(arbolImg->imgHeight) + " \n PW: " + to_string(arbolImg->pixWidth) + "px, PH: " + to_string(arbolImg->pixHeight) + "px\"" + "->" + "\"" + arbolImg->izquierdo->nomImg + " \n W: " + to_string(arbolImg->izquierdo->imgWidth) + ", H: " + to_string(arbolImg->izquierdo->imgHeight) + " \n PW: " + to_string(arbolImg->izquierdo->pixWidth) + "px, PH: " + to_string(arbolImg->izquierdo->pixHeight) + "px\"" + "\n";
 		}
+		else{
+			cadrep += "\"" + arbolImg->nomImg + " \n W: " + to_string(arbolImg->imgWidth) + ", H: " + to_string(arbolImg->imgHeight) + " \n PW: " + to_string(arbolImg->pixWidth) + "px, PH: " + to_string(arbolImg->pixHeight) + "px\"" + "->" + "\"" + arbolImg->nomImg + " NULL IZQ \" \n";
+		}
 		if (arbolImg->derecho!=NULL)
 		{
 			cadrep += "\"" + arbolImg->nomImg + " \n W: " + to_string(arbolImg->imgWidth) + ", H: " + to_string(arbolImg->imgHeight) + " \n PW: " + to_string(arbolImg->pixWidth) + "px, PH: " + to_string(arbolImg->pixHeight) + "px\"" + "->" + "\"" + arbolImg->derecho->nomImg + " \n W: " + to_string(arbolImg->derecho->imgWidth) + ", H: " + to_string(arbolImg->derecho->imgHeight) + " \n PW: " + to_string(arbolImg->derecho->pixWidth) + "px, PH: " + to_string(arbolImg->derecho->pixHeight) + "px\"" + "\n";
-		}		
+		}
+		else{
+			cadrep += "\"" + arbolImg->nomImg + " \n W: " + to_string(arbolImg->imgWidth) + ", H: " + to_string(arbolImg->imgHeight) + " \n PW: " + to_string(arbolImg->pixWidth) + "px, PH: " + to_string(arbolImg->pixHeight) + "px\"" + "->" + "\"" + arbolImg->nomImg + " NULL DER \" \n";
+		}
 		reporteArbol(arbolImg->derecho);
 		reporteArbol(arbolImg->izquierdo);
 	}
@@ -2729,7 +2735,7 @@ void CrearCuboDisperso(string _archivoleer)
 	//me lee el archivo principal
 	try{
 		ifstream lectura;
-		lectura.open(_archivoleer, ios::in);
+		lectura.open(nombreDeImagen + "/" + _archivoleer, ios::in); // seria: LUIGUI/inicial.csv
 		int linealec = 0; //me dira en que linea me encuentro
 
 		for (string linea; getline(lectura, linea);)
@@ -3340,7 +3346,7 @@ void ReporteGraphvizTodasLasCapasListaFiltros(string nomF)
 			{
 				if (actual->apuntaCopiaCubo != NULL)
 				{
-					NodoCopiaCubo *aux = actual->apuntaCopiaCubo->siguiente;
+					NodoCopiaCubo *aux = actual->apuntaCopiaCubo;
 					string grafo = "";
 
 					if (aux != NULL)
@@ -3686,7 +3692,7 @@ void guardarConfig(string _archivo)
 	try{
 		//empezara a leer el archivo.csv
 		ifstream lectura;
-		lectura.open(_archivo, ios::in);
+		lectura.open(nombreDeImagen + "/" + _archivo, ios::in);
 
 		int linealec = 0;
 
@@ -3726,7 +3732,7 @@ void guardarConfig(string _archivo)
 			}
 			linealec++;
 		}
-		cout << config[0] << config[1] << config[2] << config[3] << endl;
+		//cout << config[0] << config[1] << config[2] << config[3] << endl;
 	}
 	catch (exception e){
 		printf("ERROR AL LEER ARCHIVO EN CREACION DE MATRIZ");
@@ -3882,7 +3888,7 @@ void graphvizEscrituraParaRecorrido(string nomRec, string _texto)
 	string dott = "dot -Tpng " + nomRec + ".dot -o " +  nomRec + ".png";
 	charr = (char *)dott.c_str();
 	system(charr);
-	string im ="start " + nomRec+".jpg";
+	string im ="start " + nomRec+".png";
 	char* charr2 = (char *)im.c_str();
 	system(charr2);
 }
@@ -4261,8 +4267,11 @@ void generarCSS()
 		}
 
 		archivo << cadena;
-
 		archivo.close();
+
+		string im = "start Exports/" + nombreDeImagen + "/" + nombreDeImagen + "_" + nombreFiltroActual + ".html";
+		char* charr2 = (char *)im.c_str();
+		system(charr2);
 	}
 	else if (aa!=0) //si es distinto a 0 es collage
 	{
@@ -4353,8 +4362,11 @@ void generarCSS()
 		}
 
 		archivo << cadena;
-
 		archivo.close();
+
+		string im = "start Exports/" + nombreDeImagen + "/" + nombreDeImagen + "_" + nombreFiltroActual + ".html";
+		char* charr2 = (char *)im.c_str();
+		system(charr2);
 	}
 	else{
 		string cadena = "";
@@ -4438,8 +4450,11 @@ void generarCSS()
 		}
 
 		archivo << cadena;
-
 		archivo.close();
+
+		string im = "start Exports/" + nombreDeImagen + "/" + nombreDeImagen + "_" + nombreFiltroActual + ".html";
+		char* charr2 = (char *)im.c_str();
+		system(charr2);
 	}	
 
 }
@@ -4954,12 +4969,15 @@ int main()
 void subMenuInsertarImagen()
 {
 	string a;
-	printf(" \n--> INGRESE NOMBRE DE ARCHIVO PRINCIPAL (SIN EXTENSION)\n");
+	printf(" \n--> INGRESE NOMBRE DE CARPETA QUE CONTIENE ARCHIVOS .CSV\n");
 	cin >> a;
 	nombreDeImagen = a;
 	nombreFiltroActual = "Original";
-	a += ".csv";	
-	CrearCuboDisperso(a);
+	string b;
+	printf(" \n--> INGRESE NOMBRE DE ARCHIVO PRINCIPAL (SIN EXTENSION)\n");
+	cin >> b;
+	b += ".csv";	
+	CrearCuboDisperso(b);
 	listDimensionCollage.vaciar();
 	copCubo.vaciar();
 	listFiltros.vaciar();
